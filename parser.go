@@ -23,13 +23,13 @@ type Record struct {
 	Status   string
 }
 
-type RirData struct {
+type Records struct {
 	AsnCount  int
 	Ipv4Count int
 	Ipv6Count int
 }
 
-func Parse(r io.Reader) *RirData {
+func Parse(r io.Reader) *Records {
 	records := []Record{}
 	summaries := []Summary{}
 
@@ -65,5 +65,5 @@ func Parse(r io.Reader) *RirData {
 		}
 	}
 
-	return &(RirData{AsnCount: asnCount, Ipv4Count: ipv4Count, Ipv6Count: ipv6Count})
+	return &(Records{AsnCount: asnCount, Ipv4Count: ipv4Count, Ipv6Count: ipv6Count})
 }
