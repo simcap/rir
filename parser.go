@@ -10,7 +10,7 @@ import (
 type Summary struct {
 	Registry string
 	Type     string
-	Count    int64
+	Count    int
 }
 
 type Record struct {
@@ -18,15 +18,15 @@ type Record struct {
 	Cc       string
 	Type     string
 	Start    string
-	Value    int64
+	Value    int
 	Date     string
 	Status   string
 }
 
 type RirData struct {
-	AsnCount  int64
-	Ipv4Count int64
-	Ipv6Count int64
+	AsnCount  int
+	Ipv4Count int
+	Ipv6Count int
 }
 
 func Parse(r io.Reader) *RirData {
@@ -41,18 +41,18 @@ func Parse(r io.Reader) *RirData {
 			continue
 		} else if strings.HasSuffix(line, "summary") {
 			fields := strings.Split(line, "|")
-			count, _ := strconv.ParseInt(fields[4], 10, 0)
+			count, _ := strconv.Atoi(fields[4])
 			summary := Summary{fields[0], fields[2], count}
 			summaries = append(summaries, summary)
 		} else {
 			fields := strings.Split(line, "|")
-			count, _ := strconv.ParseInt(fields[4], 10, 0)
+			count, _ := strconv.Atoi(fields[4])
 			record := Record{fields[0], fields[1], fields[2], fields[3], count, fields[5], fields[6]}
 			records = append(records, record)
 		}
 	}
 
-	var asnCount, ipv4Count, ipv6Count int64
+	var asnCount, ipv4Count, ipv6Count int
 	for _, current := range summaries {
 		if current.Type == "asn" {
 			asnCount = current.Count

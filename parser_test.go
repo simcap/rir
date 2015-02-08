@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/simcap/netblocks/rir"
+	"github.com/simcap/rir"
 )
 
 func TestParsing(t *testing.T) {
@@ -18,16 +18,16 @@ func TestParsing(t *testing.T) {
 
 	rirData := rir.Parse(file)
 
-	asnCount, ipv4Count, ipv6Count := int64(3986), int64(17947), int64(1553)
+	asnCount, ipv4Count, ipv6Count := 3986, 17947, 1553
 
 	if rirData.AsnCount != asnCount {
-		t.Errorf("asn count: expected %q got %q", asnCount, rirData.AsnCount)
+		t.Errorf("asn count: expected %d got %d", asnCount, rirData.AsnCount)
 	}
 	if rirData.Ipv4Count != ipv4Count {
-		t.Errorf("ipv4 count: expected %q got %q", ipv4Count, rirData.Ipv4Count)
+		t.Errorf("ipv4 count: expected %d got %d", ipv4Count, rirData.Ipv4Count)
 	}
 	if rirData.Ipv6Count != ipv6Count {
-		t.Errorf("ipv6 count: expected %q got %q", ipv6Count, rirData.Ipv6Count)
+		t.Errorf("ipv6 count: expected %d got %d", ipv6Count, rirData.Ipv6Count)
 	}
 
 }
