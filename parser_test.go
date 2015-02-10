@@ -18,8 +18,11 @@ func TestParsing(t *testing.T) {
 
 	records := rir.Parse(file)
 
-	asnCount, ipv4Count, ipv6Count := 3986, 17947, 1553
+	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
+	if records.Count != recordsCount {
+		t.Errorf("total records count: expected %d got %d", recordsCount, records.Count)
+	}
 	if records.AsnCount != asnCount {
 		t.Errorf("asn count: expected %d got %d", asnCount, records.AsnCount)
 	}

@@ -3,52 +3,89 @@ package rir
 import (
 	"bufio"
 	"io"
+	"net"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 type Summary struct {
-	Registry string
-	Type     string
-	Count    int
+	Registry, Type string
+	Count          int
+}
+
+type VersionLine struct {
+	Version                       int
+	Registry, Serial              string
+	Records                       int
+	StartDate, EndDate, UtcOffset string
 }
 
 type Record struct {
-	Registry string
-	Cc       string
-	Type     string
-	Start    string
-	Value    int
-	Date     string
-	Status   string
+	Registry, Cc, Type string
+	Value              int
+	Date, Status       string
+}
+
+type IpRecord struct {
+	*Record
+	Start net.IP
+}
+
+type AsnRecord struct {
+	*Record
+	Start int
 }
 
 type Records struct {
-	AsnCount  int
-	Ipv4Count int
-	Ipv6Count int
+	Count, AsnCount, Ipv4Count, Ipv6Count int
 }
 
 func Parse(r io.Reader) *Records {
-	records := []Record{}
+	records := make([]interface{}, 1)
 	summaries := []Summary{}
-
 	scanner := bufio.NewScanner(r)
+	var versionLine VersionLine
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
 		if strings.HasPrefix(line, "#") {
 			continue
+		}
+
+		fields := strings.Split(line, "|")
+
+		if first, _ := utf8.DecodeRuneInString(fields[0]); unicode.IsDigit(first) {
+			version, _ := strconv.Atoi(fields[0])
+			recordsCount, _ := strconv.Atoi(fields[3])
+			versionLine = VersionLine{
+				version, fields[1], fields[2], recordsCount,
+				fields[4], fields[5], fields[6],
+			}
 		} else if strings.HasSuffix(line, "summary") {
-			fields := strings.Split(line, "|")
 			count, _ := strconv.Atoi(fields[4])
 			summary := Summary{fields[0], fields[2], count}
 			summaries = append(summaries, summary)
 		} else {
-			fields := strings.Split(line, "|")
 			count, _ := strconv.Atoi(fields[4])
-			record := Record{fields[0], fields[1], fields[2], fields[3], count, fields[5], fields[6]}
-			records = append(records, record)
+			if strings.HasPrefix(fields[2], "ipv") {
+				record := IpRecord{
+					&Record{fields[0], fields[1], fields[3],
+						count, fields[5], fields[6]},
+					net.ParseIP(fields[2]),
+				}
+				records = append(records, record)
+			} else if strings.HasPrefix(fields[2], "asn") {
+				asnNumber, _ := strconv.Atoi(fields[2])
+				record := AsnRecord{
+					&Record{fields[0], fields[1], fields[3],
+						count, fields[5], fields[6]},
+					asnNumber,
+				}
+				records = append(records, record)
+			}
 		}
 	}
 
@@ -65,5 +102,10 @@ func Parse(r io.Reader) *Records {
 		}
 	}
 
-	return &(Records{AsnCount: asnCount, Ipv4Count: ipv4Count, Ipv6Count: ipv6Count})
+	return &(Records{
+		Count:     versionLine.Records,
+		AsnCount:  asnCount,
+		Ipv4Count: ipv4Count,
+		Ipv6Count: ipv6Count,
+	})
 }
