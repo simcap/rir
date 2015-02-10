@@ -53,8 +53,8 @@ func Parse(r io.Reader) *Records {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		ignoreLine, _ := regexp.Compile("^#|^\\s*$")
-		versionLine, _ := regexp.Compile("^\\d+\\.*\\d*")
+		ignoreLine := regexp.MustCompile("^#|^\\s*$")
+		versionLine := regexp.MustCompile("^\\d+\\.*\\d*")
 
 		if ignoreLine.MatchString(line) {
 			continue
