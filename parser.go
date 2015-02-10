@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-type Summary struct {
+type SummaryLine struct {
 	Registry, Type string
 	Count          int
 }
@@ -23,19 +23,19 @@ type VersionLine struct {
 	StartDate, EndDate, UtcOffset string
 }
 
-type Record struct {
+type RecordLine struct {
 	Registry, Cc, Type string
 	Value              int
 	Date, Status       string
 }
 
 type IpRecord struct {
-	*Record
+	*RecordLine
 	Start net.IP
 }
 
 type AsnRecord struct {
-	*Record
+	*RecordLine
 	Start int
 }
 
@@ -48,7 +48,7 @@ type Records struct {
 func Parse(r io.Reader) *Records {
 	asnRecords := []AsnRecord{}
 	ipRecords := []IpRecord{}
-	summaries := []Summary{}
+	summaries := []SummaryLine{}
 	scanner := bufio.NewScanner(r)
 	var versionLine VersionLine
 
@@ -71,13 +71,13 @@ func Parse(r io.Reader) *Records {
 			}
 		} else if strings.HasSuffix(line, "summary") {
 			count, _ := strconv.Atoi(fields[4])
-			summary := Summary{fields[0], fields[2], count}
+			summary := SummaryLine{fields[0], fields[2], count}
 			summaries = append(summaries, summary)
 		} else {
 			count, _ := strconv.Atoi(fields[4])
 			if strings.HasPrefix(fields[2], "ipv") {
 				record := IpRecord{
-					&Record{fields[0], fields[1], fields[2],
+					&RecordLine{fields[0], fields[1], fields[2],
 						count, fields[5], fields[6]},
 					net.ParseIP(fields[3]),
 				}
@@ -85,7 +85,7 @@ func Parse(r io.Reader) *Records {
 			} else if strings.HasPrefix(fields[2], "asn") {
 				asnNumber, _ := strconv.Atoi(fields[3])
 				record := AsnRecord{
-					&Record{fields[0], fields[1], fields[2],
+					&RecordLine{fields[0], fields[1], fields[2],
 						count, fields[5], fields[6]},
 					asnNumber,
 				}
