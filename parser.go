@@ -50,7 +50,7 @@ func Parse(r io.Reader) *Records {
 	ipRecords := []IpRecord{}
 	summaries := []SummaryLine{}
 	scanner := bufio.NewScanner(r)
-	var versionLine VersionLine
+	var versionLine *VersionLine
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -63,32 +63,16 @@ func Parse(r io.Reader) *Records {
 		fields := strings.Split(line, "|")
 
 		if first, _ := utf8.DecodeRuneInString(fields[0]); unicode.IsDigit(first) {
-			version, _ := strconv.Atoi(fields[0])
-			recordsCount, _ := strconv.Atoi(fields[3])
-			versionLine = VersionLine{
-				version, fields[1], fields[2], recordsCount,
-				fields[4], fields[5], fields[6],
-			}
+			versionLine = parseVersionLine(fields)
 		} else if strings.HasSuffix(line, "summary") {
-			count, _ := strconv.Atoi(fields[4])
-			summary := SummaryLine{fields[0], fields[2], count}
+			summary := parseSummaryLine(fields)
 			summaries = append(summaries, summary)
 		} else {
-			count, _ := strconv.Atoi(fields[4])
 			if strings.HasPrefix(fields[2], "ipv") {
-				record := IpRecord{
-					&RecordLine{fields[0], fields[1], fields[2],
-						count, fields[5], fields[6]},
-					net.ParseIP(fields[3]),
-				}
+				record := parseIpRecordLine(fields)
 				ipRecords = append(ipRecords, record)
 			} else if strings.HasPrefix(fields[2], "asn") {
-				asnNumber, _ := strconv.Atoi(fields[3])
-				record := AsnRecord{
-					&RecordLine{fields[0], fields[1], fields[2],
-						count, fields[5], fields[6]},
-					asnNumber,
-				}
+				record := parseAsnRecordLine(fields)
 				asnRecords = append(asnRecords, record)
 			}
 		}
@@ -115,4 +99,37 @@ func Parse(r io.Reader) *Records {
 		Asns:      asnRecords,
 		Ips:       ipRecords,
 	})
+}
+
+func parseVersionLine(fields []string) *VersionLine {
+	version, _ := strconv.Atoi(fields[0])
+	recordsCount, _ := strconv.Atoi(fields[3])
+	return &VersionLine{
+		version, fields[1], fields[2], recordsCount,
+		fields[4], fields[5], fields[6],
+	}
+}
+
+func parseSummaryLine(fields []string) SummaryLine {
+	count, _ := strconv.Atoi(fields[4])
+	return SummaryLine{fields[0], fields[2], count}
+}
+
+func parseIpRecordLine(fields []string) IpRecord {
+	count, _ := strconv.Atoi(fields[4])
+	return IpRecord{
+		&RecordLine{fields[0], fields[1], fields[2],
+			count, fields[5], fields[6]},
+		net.ParseIP(fields[3]),
+	}
+}
+
+func parseAsnRecordLine(fields []string) AsnRecord {
+	count, _ := strconv.Atoi(fields[4])
+	asnNumber, _ := strconv.Atoi(fields[3])
+	return AsnRecord{
+		&RecordLine{fields[0], fields[1], fields[2],
+			count, fields[5], fields[6]},
+		asnNumber,
+	}
 }
