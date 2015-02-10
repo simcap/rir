@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 )
 
 type Summary struct {
@@ -17,7 +15,7 @@ type Summary struct {
 }
 
 type Version struct {
-	Version                       int
+	Version                       float64
 	Registry, Serial              string
 	Records                       int
 	StartDate, EndDate, UtcOffset string
@@ -40,6 +38,7 @@ type AsnRecord struct {
 }
 
 type Records struct {
+	Version                               float64
 	Count, AsnCount, Ipv4Count, Ipv6Count int
 	Asns                                  []AsnRecord
 	Ips                                   []IpRecord
@@ -50,11 +49,12 @@ func Parse(r io.Reader) *Records {
 	ipRecords := []IpRecord{}
 	summaries := []Summary{}
 	scanner := bufio.NewScanner(r)
-	var versionLine *Version
+	var version *Version
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		ignoreLine, _ := regexp.Compile("^#|^\\s*$")
+		versionLine, _ := regexp.Compile("^\\d+\\.*\\d*")
 
 		if ignoreLine.MatchString(line) {
 			continue
@@ -62,8 +62,8 @@ func Parse(r io.Reader) *Records {
 
 		fields := strings.Split(line, "|")
 
-		if first, _ := utf8.DecodeRuneInString(fields[0]); unicode.IsDigit(first) {
-			versionLine = parseVersionLine(fields)
+		if versionLine.MatchString(line) {
+			version = parseVersionLine(fields)
 		} else if strings.HasSuffix(line, "summary") {
 			summary := parseSummaryLine(fields)
 			summaries = append(summaries, summary)
@@ -81,7 +81,8 @@ func Parse(r io.Reader) *Records {
 	asnCount, ipv4Count, ipv6Count := recordsCountByType(summaries)
 
 	return &(Records{
-		Count:     versionLine.Records,
+		Version:   version.Version,
+		Count:     version.Records,
 		AsnCount:  asnCount,
 		Ipv4Count: ipv4Count,
 		Ipv6Count: ipv6Count,
@@ -91,7 +92,7 @@ func Parse(r io.Reader) *Records {
 }
 
 func parseVersionLine(fields []string) *Version {
-	version, _ := strconv.Atoi(fields[0])
+	version, _ := strconv.ParseFloat(fields[0], 64)
 	recordsCount, _ := strconv.Atoi(fields[3])
 	return &Version{
 		version, fields[1], fields[2], recordsCount,

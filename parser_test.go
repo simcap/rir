@@ -20,6 +20,9 @@ func TestParsing(t *testing.T) {
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
+	if records.Version != 2.3 {
+		t.Errorf("records version: expected 2.3 got %d", records.Version)
+	}
 	if records.Count != recordsCount {
 		t.Errorf("total records count: expected %d got %d", recordsCount, records.Count)
 	}

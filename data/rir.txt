@@ -1,4 +1,4 @@
-2|apnic|20110113|23486|19850701|20110112|+1000
+2.3|apnic|20110113|23486|19850701|20110112|+1000
 # line to be ignored
 apnic|*|asn|*|3986|summary
 apnic|*|ipv4|*|17947|summary
