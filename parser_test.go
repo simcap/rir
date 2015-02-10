@@ -33,4 +33,20 @@ func TestParsing(t *testing.T) {
 		t.Errorf("ipv6 count: expected %d got %d", ipv6Count, records.Ipv6Count)
 	}
 
+	firstAsnRecord := records.Asns[0]
+	if firstAsnRecord.Status != "allocated" {
+		t.Errorf("asn record status: expected 'allocated' got %q", firstAsnRecord.Status)
+	}
+	if firstAsnRecord.Start != 173 {
+		t.Errorf("asn record status: expected 173 got %q", firstAsnRecord.Start)
+	}
+
+	firstIpRecord := records.Ips[1]
+	if firstIpRecord.Status != "assigned" {
+		t.Errorf("asn record status: expected 'assigned' got %q", firstIpRecord.Status)
+	}
+	if firstIpRecord.Start.String() != "203.81.160.0" {
+		t.Errorf("asn record status: expected '203.81.160.0' got %q", firstIpRecord.Start.String())
+	}
+
 }

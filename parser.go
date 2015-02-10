@@ -40,10 +40,13 @@ type AsnRecord struct {
 
 type Records struct {
 	Count, AsnCount, Ipv4Count, Ipv6Count int
+	Asns                                  []AsnRecord
+	Ips                                   []IpRecord
 }
 
 func Parse(r io.Reader) *Records {
-	records := make([]interface{}, 1)
+	asnRecords := []AsnRecord{}
+	ipRecords := []IpRecord{}
 	summaries := []Summary{}
 	scanner := bufio.NewScanner(r)
 	var versionLine VersionLine
@@ -72,19 +75,19 @@ func Parse(r io.Reader) *Records {
 			count, _ := strconv.Atoi(fields[4])
 			if strings.HasPrefix(fields[2], "ipv") {
 				record := IpRecord{
-					&Record{fields[0], fields[1], fields[3],
+					&Record{fields[0], fields[1], fields[2],
 						count, fields[5], fields[6]},
-					net.ParseIP(fields[2]),
+					net.ParseIP(fields[3]),
 				}
-				records = append(records, record)
+				ipRecords = append(ipRecords, record)
 			} else if strings.HasPrefix(fields[2], "asn") {
-				asnNumber, _ := strconv.Atoi(fields[2])
+				asnNumber, _ := strconv.Atoi(fields[3])
 				record := AsnRecord{
-					&Record{fields[0], fields[1], fields[3],
+					&Record{fields[0], fields[1], fields[2],
 						count, fields[5], fields[6]},
 					asnNumber,
 				}
-				records = append(records, record)
+				asnRecords = append(asnRecords, record)
 			}
 		}
 	}
@@ -107,5 +110,7 @@ func Parse(r io.Reader) *Records {
 		AsnCount:  asnCount,
 		Ipv4Count: ipv4Count,
 		Ipv6Count: ipv6Count,
+		Asns:      asnRecords,
+		Ips:       ipRecords,
 	})
 }
