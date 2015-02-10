@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -53,8 +54,9 @@ func Parse(r io.Reader) *Records {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		ignoreLine, _ := regexp.Compile("^#|^\\s*$")
 
-		if strings.HasPrefix(line, "#") {
+		if ignoreLine.MatchString(line) {
 			continue
 		}
 

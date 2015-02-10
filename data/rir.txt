@@ -2,6 +2,7 @@
 # line to be ignored
 apnic|*|asn|*|3986|summary
 apnic|*|ipv4|*|17947|summary
+
 apnic|*|ipv6|*|1553|summary
 apnic|JP|asn|173|1|20020801|allocated
 apnic|NZ|asn|681|1|20020801|allocated
