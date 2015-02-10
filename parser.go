@@ -11,31 +11,31 @@ import (
 	"unicode/utf8"
 )
 
-type SummaryLine struct {
+type Summary struct {
 	Registry, Type string
 	Count          int
 }
 
-type VersionLine struct {
+type Version struct {
 	Version                       int
 	Registry, Serial              string
 	Records                       int
 	StartDate, EndDate, UtcOffset string
 }
 
-type RecordLine struct {
+type Record struct {
 	Registry, Cc, Type string
 	Value              int
 	Date, Status       string
 }
 
 type IpRecord struct {
-	*RecordLine
+	*Record
 	Start net.IP
 }
 
 type AsnRecord struct {
-	*RecordLine
+	*Record
 	Start int
 }
 
@@ -48,9 +48,9 @@ type Records struct {
 func Parse(r io.Reader) *Records {
 	asnRecords := []AsnRecord{}
 	ipRecords := []IpRecord{}
-	summaries := []SummaryLine{}
+	summaries := []Summary{}
 	scanner := bufio.NewScanner(r)
-	var versionLine *VersionLine
+	var versionLine *Version
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -69,27 +69,16 @@ func Parse(r io.Reader) *Records {
 			summaries = append(summaries, summary)
 		} else {
 			if strings.HasPrefix(fields[2], "ipv") {
-				record := parseIpRecordLine(fields)
+				record := parseIpRecord(fields)
 				ipRecords = append(ipRecords, record)
 			} else if strings.HasPrefix(fields[2], "asn") {
-				record := parseAsnRecordLine(fields)
+				record := parseAsnRecord(fields)
 				asnRecords = append(asnRecords, record)
 			}
 		}
 	}
 
-	var asnCount, ipv4Count, ipv6Count int
-	for _, current := range summaries {
-		if current.Type == "asn" {
-			asnCount = current.Count
-		}
-		if current.Type == "ipv4" {
-			ipv4Count = current.Count
-		}
-		if current.Type == "ipv6" {
-			ipv6Count = current.Count
-		}
-	}
+	asnCount, ipv4Count, ipv6Count := recordsCountByType(summaries)
 
 	return &(Records{
 		Count:     versionLine.Records,
@@ -101,35 +90,51 @@ func Parse(r io.Reader) *Records {
 	})
 }
 
-func parseVersionLine(fields []string) *VersionLine {
+func parseVersionLine(fields []string) *Version {
 	version, _ := strconv.Atoi(fields[0])
 	recordsCount, _ := strconv.Atoi(fields[3])
-	return &VersionLine{
+	return &Version{
 		version, fields[1], fields[2], recordsCount,
 		fields[4], fields[5], fields[6],
 	}
 }
 
-func parseSummaryLine(fields []string) SummaryLine {
+func parseSummaryLine(fields []string) Summary {
 	count, _ := strconv.Atoi(fields[4])
-	return SummaryLine{fields[0], fields[2], count}
+	return Summary{fields[0], fields[2], count}
 }
 
-func parseIpRecordLine(fields []string) IpRecord {
-	count, _ := strconv.Atoi(fields[4])
+func recordsCountByType(summaries []Summary) (int, int, int) {
+	var asn, ipv4, ipv6 int
+	for _, current := range summaries {
+		if current.Type == "asn" {
+			asn = current.Count
+		}
+		if current.Type == "ipv4" {
+			ipv4 = current.Count
+		}
+		if current.Type == "ipv6" {
+			ipv6 = current.Count
+		}
+	}
+	return asn, ipv4, ipv6
+}
+
+func parseIpRecord(fields []string) IpRecord {
+	value, _ := strconv.Atoi(fields[4])
 	return IpRecord{
-		&RecordLine{fields[0], fields[1], fields[2],
-			count, fields[5], fields[6]},
+		&Record{fields[0], fields[1], fields[2],
+			value, fields[5], fields[6]},
 		net.ParseIP(fields[3]),
 	}
 }
 
-func parseAsnRecordLine(fields []string) AsnRecord {
-	count, _ := strconv.Atoi(fields[4])
+func parseAsnRecord(fields []string) AsnRecord {
+	value, _ := strconv.Atoi(fields[4])
 	asnNumber, _ := strconv.Atoi(fields[3])
 	return AsnRecord{
-		&RecordLine{fields[0], fields[1], fields[2],
-			count, fields[5], fields[6]},
+		&Record{fields[0], fields[1], fields[2],
+			value, fields[5], fields[6]},
 		asnNumber,
 	}
 }
