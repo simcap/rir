@@ -10,11 +10,11 @@ import (
 )
 
 type Reader struct {
-	r *bufio.Reader
+	scanner *bufio.Scanner
 }
 
 func NewReader(r io.Reader) *Reader {
-	return &Reader{r: bufio.NewReader(r)}
+	return &Reader{scanner: bufio.NewScanner(r)}
 }
 
 type (
@@ -58,11 +58,10 @@ func (r *Reader) Read() *Records {
 	asnRecords := []AsnRecord{}
 	ipRecords := []IpRecord{}
 	summaries := []Summary{}
-	scanner := bufio.NewScanner(r.r)
 	var version *Version
 
-	for scanner.Scan() {
-		line := scanner.Text()
+	for r.scanner.Scan() {
+		line := r.scanner.Text()
 		ignoreLine := regexp.MustCompile("^#|^\\s*$")
 		versionLine := regexp.MustCompile("^\\d+\\.*\\d*")
 
