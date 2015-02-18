@@ -9,40 +9,42 @@ import (
 	"strings"
 )
 
-type Summary struct {
-	Registry, Type string
-	Count          int
-}
+type (
+	Summary struct {
+		Registry, Type string
+		Count          int
+	}
 
-type Version struct {
-	Version                       float64
-	Registry, Serial              string
-	Records                       int
-	StartDate, EndDate, UtcOffset string
-}
+	Version struct {
+		Version                       float64
+		Registry, Serial              string
+		Records                       int
+		StartDate, EndDate, UtcOffset string
+	}
 
-type Record struct {
-	Registry, Cc, Type string
-	Value              int
-	Date, Status       string
-}
+	Record struct {
+		Registry, Cc, Type string
+		Value              int
+		Date, Status       string
+	}
 
-type IpRecord struct {
-	*Record
-	Start net.IP
-}
+	IpRecord struct {
+		*Record
+		Start net.IP
+	}
 
-type AsnRecord struct {
-	*Record
-	Start int
-}
+	AsnRecord struct {
+		*Record
+		Start int
+	}
 
-type Records struct {
-	Version                               float64
-	Count, AsnCount, Ipv4Count, Ipv6Count int
-	Asns                                  []AsnRecord
-	Ips                                   []IpRecord
-}
+	Records struct {
+		Version                               float64
+		Count, AsnCount, Ipv4Count, Ipv6Count int
+		Asns                                  []AsnRecord
+		Ips                                   []IpRecord
+	}
+)
 
 func Parse(r io.Reader) *Records {
 	asnRecords := []AsnRecord{}
