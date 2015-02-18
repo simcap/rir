@@ -1,22 +1,33 @@
 package rir_test
 
 import (
-	"fmt"
-	"os"
+	"bytes"
 	"testing"
 
 	"github.com/simcap/rir"
 )
 
 func TestParsing(t *testing.T) {
-	file, err := os.Open("./data/rir.txt")
-	defer file.Close()
+	data := bytes.NewBufferString(
+		`2.3|apnic|20110113|23486|19850701|20110112|+1000
+# line to be ignored
+apnic|*|asn|*|3986|summary
+apnic|*|ipv4|*|17947|summary
 
-	if err != nil {
-		fmt.Fprintln(os.Stdout, "cannot find file")
-	}
+apnic|*|ipv6|*|1553|summary
+apnic|JP|asn|173|1|20020801|allocated
+apnic|NZ|asn|681|1|20020801|allocated
+apnic|MM|ipv4|203.81.64.0|8192|20100504|assigned
+apnic|MM|ipv4|203.81.160.0|4096|20100122|assigned
+apnic|KP|ipv4|175.45.176.0|1024|20100122|assigned
+apnic|JP|ipv6|2001:200::|35|19990813|allocated
+apnic|JP|ipv6|2001:200:2000::|35|20030423|allocated
+apnic|JP|ipv6|2001:200:4000::|34|20030423|allocated
+apnic|JP|ipv6|2001:200:8000::|33|20030423|allocated
+ripencc|PL|ipv4|193.9.25.0|256|20090225|assigned
+ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned`)
 
-	records := rir.NewReader(file).Read()
+	records := rir.NewReader(data).Read()
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
