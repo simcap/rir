@@ -7,27 +7,10 @@ import (
 	"github.com/simcap/rir"
 )
 
-func TestParsing(t *testing.T) {
-	data := bytes.NewBufferString(
-		`2.3|apnic|20110113|23486|19850701|20110112|+1000
-# line to be ignored
-apnic|*|asn|*|3986|summary
-apnic|*|ipv4|*|17947|summary
+func TestParsingRegularFile(t *testing.T) {
+	data := bytes.NewBufferString(regularData)
 
-apnic|*|ipv6|*|1553|summary
-apnic|JP|asn|173|1|20020801|allocated
-apnic|NZ|asn|681|1|20020801|allocated
-apnic|MM|ipv4|203.81.64.0|8192|20100504|assigned
-apnic|MM|ipv4|203.81.160.0|4096|20100122|assigned
-apnic|KP|ipv4|175.45.176.0|1024|20100122|assigned
-apnic|JP|ipv6|2001:200::|35|19990813|allocated
-apnic|JP|ipv6|2001:200:2000::|35|20030423|allocated
-apnic|JP|ipv6|2001:200:4000::|34|20030423|allocated
-apnic|JP|ipv6|2001:200:8000::|33|20030423|allocated
-ripencc|PL|ipv4|193.9.25.0|256|20090225|assigned
-ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned`)
-
-	records := rir.NewReader(data).Read()
+	records, _ := rir.NewReader(data).Read()
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
@@ -64,3 +47,40 @@ ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned`)
 	}
 
 }
+
+func TestRaiseErrors(t *testing.T) {
+	data := bytes.NewBufferString(faultyData)
+
+	_, err := rir.NewReader(data).Read()
+	perr, _ := err.(*rir.ParseError)
+
+	if err == nil {
+		t.Error("expecting an error to occur")
+	} else if perr.Line != 5 {
+		t.Errorf("error line: expecting line 5 got %d", perr.Line)
+	}
+}
+
+var regularData = `2.3|apnic|20110113|23486|19850701|20110112|+1000
+# line to be ignored
+apnic|*|asn|*|3986|summary
+apnic|*|ipv4|*|17947|summary
+
+apnic|*|ipv6|*|1553|summary
+apnic|JP|asn|173|1|20020801|allocated
+apnic|NZ|asn|681|1|20020801|allocated
+apnic|MM|ipv4|203.81.64.0|8192|20100504|assigned
+apnic|MM|ipv4|203.81.160.0|4096|20100122|assigned
+apnic|KP|ipv4|175.45.176.0|1024|20100122|assigned
+apnic|JP|ipv6|2001:200::|35|19990813|allocated
+apnic|JP|ipv6|2001:200:2000::|35|20030423|allocated
+apnic|JP|ipv6|2001:200:4000::|34|20030423|allocated
+apnic|JP|ipv6|2001:200:8000::|33|20030423|allocated
+ripencc|PL|ipv4|193.9.25.0|256|20090225|assigned
+ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned`
+
+var faultyData = `2.3|apnic|20110113|23486|19850701|20110112|+1000
+apnic|*|asn|*|3986|summary
+apnic|*|ipv4|*|17947|summary
+apnic|*|ipv6|*|1553|summary
+2.3|apnic|20110113|23486|19850701|20110112|+1000`

@@ -2,6 +2,8 @@ package rir
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"regexp"
@@ -9,8 +11,25 @@ import (
 	"strings"
 )
 
+type ParseError struct {
+	Line int
+	Err  error
+}
+
+func (e *ParseError) Error() string {
+	return fmt.Sprintf("line %d: %s", e.Line, e.Err)
+}
+
+var (
+	ErrMultipleVersionLine = errors.New("redundant version line found")
+)
+
 type Reader struct {
-	scanner *bufio.Scanner
+	scanner       *bufio.Scanner
+	lineCount     int
+	currentLine   string
+	fields        []string
+	versionParsed bool
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -54,7 +73,7 @@ type (
 	}
 )
 
-func (r *Reader) Read() *Records {
+func (r *Reader) Read() (records *Records, err error) {
 	asnRecords := []AsnRecord{}
 	ipRecords := []IpRecord{}
 	summaries := []Summary{}
@@ -62,26 +81,29 @@ func (r *Reader) Read() *Records {
 
 	for r.scanner.Scan() {
 		line := r.scanner.Text()
-		ignoreLine := regexp.MustCompile("^#|^\\s*$")
-		versionLine := regexp.MustCompile("^\\d+\\.*\\d*")
 
-		if ignoreLine.MatchString(line) {
+		r.currentLine = line
+		r.fields = strings.Split(line, "|")
+		r.lineCount++
+
+		if r.ignoredLine() {
 			continue
 		}
 
-		fields := strings.Split(line, "|")
-
-		if versionLine.MatchString(line) {
-			version = r.parseVersionLine(fields)
-		} else if strings.HasSuffix(line, "summary") {
-			summary := r.parseSummaryLine(fields)
+		if r.versionLine() {
+			if r.versionParsed {
+				return nil, r.error(ErrMultipleVersionLine)
+			}
+			version = r.parseVersionLine()
+		} else if r.summaryLine() {
+			summary := r.parseSummaryLine()
 			summaries = append(summaries, summary)
 		} else {
-			if strings.HasPrefix(fields[2], "ipv") {
-				record := r.parseIpRecord(fields)
+			if r.ipvLine() {
+				record := r.parseIpRecord()
 				ipRecords = append(ipRecords, record)
-			} else if strings.HasPrefix(fields[2], "asn") {
-				record := r.parseAsnRecord(fields)
+			} else if r.asnLine() {
+				record := r.parseAsnRecord()
 				asnRecords = append(asnRecords, record)
 			}
 		}
@@ -97,21 +119,48 @@ func (r *Reader) Read() *Records {
 		Ipv6Count: ipv6Count,
 		Asns:      asnRecords,
 		Ips:       ipRecords,
-	})
+	}), nil
 }
 
-func (r *Reader) parseVersionLine(fields []string) *Version {
-	version, _ := strconv.ParseFloat(fields[0], 64)
-	recordsCount, _ := strconv.Atoi(fields[3])
+func (r *Reader) error(err error) error {
+	return &ParseError{Line: r.lineCount, Err: err}
+}
+
+func (r *Reader) versionLine() bool {
+	version := regexp.MustCompile("^\\d+\\.*\\d*")
+	return version.MatchString(r.currentLine)
+}
+
+func (r *Reader) ignoredLine() bool {
+	ignored := regexp.MustCompile("^#|^\\s*$")
+	return ignored.MatchString(r.currentLine)
+}
+
+func (r *Reader) summaryLine() bool {
+	return strings.HasSuffix(r.currentLine, "summary")
+}
+
+func (r *Reader) ipvLine() bool {
+	return strings.HasPrefix(r.fields[2], "ipv")
+}
+
+func (r *Reader) asnLine() bool {
+	return strings.HasPrefix(r.fields[2], "asn")
+}
+
+func (r *Reader) parseVersionLine() *Version {
+	version, _ := strconv.ParseFloat(r.fields[0], 64)
+	recordsCount, _ := strconv.Atoi(r.fields[3])
+	r.versionParsed = true
 	return &Version{
-		version, fields[1], fields[2], recordsCount,
-		fields[4], fields[5], fields[6],
+		version, r.fields[1], r.fields[2], recordsCount,
+		r.fields[4], r.fields[5], r.fields[6],
 	}
 }
 
-func (r *Reader) parseSummaryLine(fields []string) Summary {
-	count, _ := strconv.Atoi(fields[4])
-	return Summary{fields[0], fields[2], count}
+func (r *Reader) parseSummaryLine() Summary {
+	count, _ := strconv.Atoi(r.fields[4])
+	return Summary{r.fields[0], r.fields[2], count}
 }
 
 func (r *Reader) recordsCountByType(summaries []Summary) (int, int, int) {
@@ -130,21 +179,21 @@ func (r *Reader) recordsCountByType(summaries []Summary) (int, int, int) {
 	return asn, ipv4, ipv6
 }
 
-func (r *Reader) parseIpRecord(fields []string) IpRecord {
-	value, _ := strconv.Atoi(fields[4])
+func (r *Reader) parseIpRecord() IpRecord {
+	value, _ := strconv.Atoi(r.fields[4])
 	return IpRecord{
-		&Record{fields[0], fields[1], fields[2],
-			value, fields[5], fields[6]},
-		net.ParseIP(fields[3]),
+		&Record{r.fields[0], r.fields[1], r.fields[2],
+			value, r.fields[5], r.fields[6]},
+		net.ParseIP(r.fields[3]),
 	}
 }
 
-func (r *Reader) parseAsnRecord(fields []string) AsnRecord {
-	value, _ := strconv.Atoi(fields[4])
-	asnNumber, _ := strconv.Atoi(fields[3])
+func (r *Reader) parseAsnRecord() AsnRecord {
+	value, _ := strconv.Atoi(r.fields[4])
+	asnNumber, _ := strconv.Atoi(r.fields[3])
 	return AsnRecord{
-		&Record{fields[0], fields[1], fields[2],
-			value, fields[5], fields[6]},
+		&Record{r.fields[0], r.fields[1], r.fields[2],
+			value, r.fields[5], r.fields[6]},
 		asnNumber,
 	}
 }
