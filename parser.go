@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+type Reader struct {
+	r *bufio.Reader
+}
+
+func NewReader(r io.Reader) *Reader {
+	return &Reader{r: bufio.NewReader(r)}
+}
+
 type (
 	Summary struct {
 		Registry, Type string
@@ -46,11 +54,11 @@ type (
 	}
 )
 
-func Parse(r io.Reader) *Records {
+func (r *Reader) Read() *Records {
 	asnRecords := []AsnRecord{}
 	ipRecords := []IpRecord{}
 	summaries := []Summary{}
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(r.r)
 	var version *Version
 
 	for scanner.Scan() {
@@ -65,22 +73,22 @@ func Parse(r io.Reader) *Records {
 		fields := strings.Split(line, "|")
 
 		if versionLine.MatchString(line) {
-			version = parseVersionLine(fields)
+			version = r.parseVersionLine(fields)
 		} else if strings.HasSuffix(line, "summary") {
-			summary := parseSummaryLine(fields)
+			summary := r.parseSummaryLine(fields)
 			summaries = append(summaries, summary)
 		} else {
 			if strings.HasPrefix(fields[2], "ipv") {
-				record := parseIpRecord(fields)
+				record := r.parseIpRecord(fields)
 				ipRecords = append(ipRecords, record)
 			} else if strings.HasPrefix(fields[2], "asn") {
-				record := parseAsnRecord(fields)
+				record := r.parseAsnRecord(fields)
 				asnRecords = append(asnRecords, record)
 			}
 		}
 	}
 
-	asnCount, ipv4Count, ipv6Count := recordsCountByType(summaries)
+	asnCount, ipv4Count, ipv6Count := r.recordsCountByType(summaries)
 
 	return &(Records{
 		Version:   version.Version,
@@ -93,7 +101,7 @@ func Parse(r io.Reader) *Records {
 	})
 }
 
-func parseVersionLine(fields []string) *Version {
+func (r *Reader) parseVersionLine(fields []string) *Version {
 	version, _ := strconv.ParseFloat(fields[0], 64)
 	recordsCount, _ := strconv.Atoi(fields[3])
 	return &Version{
@@ -102,12 +110,12 @@ func parseVersionLine(fields []string) *Version {
 	}
 }
 
-func parseSummaryLine(fields []string) Summary {
+func (r *Reader) parseSummaryLine(fields []string) Summary {
 	count, _ := strconv.Atoi(fields[4])
 	return Summary{fields[0], fields[2], count}
 }
 
-func recordsCountByType(summaries []Summary) (int, int, int) {
+func (r *Reader) recordsCountByType(summaries []Summary) (int, int, int) {
 	var asn, ipv4, ipv6 int
 	for _, current := range summaries {
 		if current.Type == "asn" {
@@ -123,7 +131,7 @@ func recordsCountByType(summaries []Summary) (int, int, int) {
 	return asn, ipv4, ipv6
 }
 
-func parseIpRecord(fields []string) IpRecord {
+func (r *Reader) parseIpRecord(fields []string) IpRecord {
 	value, _ := strconv.Atoi(fields[4])
 	return IpRecord{
 		&Record{fields[0], fields[1], fields[2],
@@ -132,7 +140,7 @@ func parseIpRecord(fields []string) IpRecord {
 	}
 }
 
-func parseAsnRecord(fields []string) AsnRecord {
+func (r *Reader) parseAsnRecord(fields []string) AsnRecord {
 	value, _ := strconv.Atoi(fields[4])
 	asnNumber, _ := strconv.Atoi(fields[3])
 	return AsnRecord{

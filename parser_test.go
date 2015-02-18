@@ -16,7 +16,7 @@ func TestParsing(t *testing.T) {
 		fmt.Fprintln(os.Stdout, "cannot find file")
 	}
 
-	records := rir.Parse(file)
+	records := rir.NewReader(file).Read()
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
