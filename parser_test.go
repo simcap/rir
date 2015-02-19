@@ -1,16 +1,14 @@
-package rir_test
+package rir
 
 import (
 	"bytes"
 	"testing"
-
-	"github.com/simcap/rir"
 )
 
 func TestParsingRegularFile(t *testing.T) {
 	data := bytes.NewBufferString(regularData)
 
-	records, _ := rir.NewReader(data).Read()
+	records, _ := NewReader(data).Read()
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
@@ -51,8 +49,8 @@ func TestParsingRegularFile(t *testing.T) {
 func TestRaiseErrors(t *testing.T) {
 	data := bytes.NewBufferString(faultyData)
 
-	_, err := rir.NewReader(data).Read()
-	perr, _ := err.(*rir.ParseError)
+	_, err := NewReader(data).Read()
+	perr, _ := err.(*ParseError)
 
 	if err == nil {
 		t.Error("expecting an error to occur")
