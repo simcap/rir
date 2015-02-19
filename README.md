@@ -1,4 +1,4 @@
-# RIR file parser 
+# RIR file reader
 
 Go (golang) package to parse RIR files.
 
