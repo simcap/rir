@@ -1,4 +1,4 @@
-package rir
+package reader
 
 import (
 	"bytes"
