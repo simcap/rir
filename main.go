@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 
 	"github.com/simcap/rir/reader"
 )
@@ -13,6 +14,8 @@ var logger = log.New(os.Stdout, "", log.Ltime)
 
 func main() {
 	collect := make(chan *reader.Records, 4)
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	go fetch("afrinic", collect)
 	go fetch("apnic", collect)
