@@ -1,20 +1,22 @@
 package cache
 
 import (
+	"bytes"
+	"crypto/md5"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"os/user"
 	"path/filepath"
 	"regexp"
 )
 
 func CreateRirCacheDir() {
-	u, _ := user.Current()
 	for provider, _ := range Providers {
-		providerDir := filepath.Join(u.HomeDir, ".rir", provider)
-		os.MkdirAll(providerDir, 0700)
+		path := filepath.Join(GetRirDir(), provider)
+		os.MkdirAll(path, 0700)
 	}
 }
 
@@ -24,8 +26,8 @@ func Refresh() {
 
 	for provider, _ := range Providers {
 		go func(p string) {
-			local := LocalMd5For(p)
-			remote := RemoteMd5For(p)
+			local := localMd5For(p)
+			remote := remoteMd5For(p)
 			if local != remote || (remote == "" && local == "") {
 				refresh <- p
 			} else {
@@ -38,25 +40,41 @@ func Refresh() {
 		select {
 		case r := <-refresh:
 			log.Printf("Need to refresh %s", r)
+			CopyDataToFile(Fetch(r), GetDataFile(r))
 		case u := <-uptodate:
 			log.Printf("%s is up to date", u)
 		}
 	}
 }
 
-func LocalMd5For(provider string) string {
-	log.Printf("Verifying local md5 for %s", provider)
-	u, _ := user.Current()
-	file, err := os.Open(filepath.Join(u.HomeDir, ".rir", provider, "md5"))
-	if os.IsNotExist(err) {
-		return ""
+func Fetch(provider string) io.Reader {
+	log.Printf("Fetching %s data", provider)
+	response, err := http.Get(Providers[provider])
+	if err != nil {
+		log.Fatal(err)
 	}
-	content, _ := ioutil.ReadAll(file)
-	return string(content)
+	defer response.Body.Close()
+
+	if status := response.StatusCode; status != 200 {
+		log.Fatalf("HTTP call returned %d", status)
+	}
+
+	content, _ := ioutil.ReadAll(response.Body)
+
+	return bytes.NewBuffer(content)
 }
 
-func RemoteMd5For(provider string) string {
-	log.Printf("Verifying remote md5 for %s", provider)
+func localMd5For(provider string) string {
+	content, err := ioutil.ReadAll(GetDataFile(provider))
+	if err != nil {
+		log.Fatalf("Cannot checksum local file for %s. %s", provider, err)
+	}
+	sum := md5.Sum(content)
+	log.Printf("Local md5 for %s is %x", provider, sum)
+	return fmt.Sprintf("%x", sum)
+}
+
+func remoteMd5For(provider string) string {
 	resp, err := http.Get(Providers[provider] + ".md5")
 	if err != nil {
 		log.Fatal(err)
@@ -72,9 +90,10 @@ func RemoteMd5For(provider string) string {
 
 	matches := regexp.MustCompile("=\\s*(\\w+)\\s*$").FindSubmatch(md5Response)
 	if matches == nil {
+		log.Print("Cannot regexp match an md5")
 		return ""
 	}
 
-	log.Printf("Remote md5 is '%s'", string(matches[1]))
+	log.Printf("Remote md5 for %s is %s", provider, string(matches[1]))
 	return string(matches[1])
 }

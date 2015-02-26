@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"runtime"
 
 	"github.com/simcap/rir/cache"
@@ -17,8 +16,8 @@ func main() {
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	for provider, url := range cache.Providers {
-		go fetch(provider, url, collect)
+	for provider, _ := range cache.Providers {
+		go fetch(provider, collect)
 	}
 
 	results := []*reader.Records{<-collect, <-collect, <-collect, <-collect}
@@ -28,20 +27,10 @@ func main() {
 	}
 }
 
-func fetch(provider string, url string, results chan<- *reader.Records) {
-	log.Printf("Fetching %s data", provider)
-	response, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer response.Body.Close()
-
-	if status := response.StatusCode; status != 200 {
-		log.Fatalf("GET call returned %d", status)
-	}
-
+func fetch(provider string, results chan<- *reader.Records) {
+	data := cache.Fetch(provider)
 	log.Printf("Parsing results for %s", provider)
-	records, parseErr := reader.NewReader(response.Body).Read()
+	records, parseErr := reader.NewReader(data).Read()
 	if parseErr != nil {
 		log.Fatal(parseErr)
 	}
