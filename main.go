@@ -16,7 +16,7 @@ func main() {
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	for provider, _ := range cache.Providers {
+	for _, provider := range cache.Providers {
 		go fetch(provider, collect)
 	}
 
@@ -33,9 +33,9 @@ func main() {
 	}
 }
 
-func fetch(provider string, results chan<- *reader.Records) {
-	data := cache.Fetch(provider)
-	log.Printf("Parsing results for %s", provider)
+func fetch(provider cache.Provider, results chan<- *reader.Records) {
+	data := provider.GetData()
+	log.Printf("Parsing results for %s", provider.Name())
 	records, parseErr := reader.NewReader(data).Read()
 	if parseErr != nil {
 		log.Fatal(parseErr)

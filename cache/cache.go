@@ -1,10 +1,8 @@
 package cache
 
 import (
-	"bytes"
 	"crypto/md5"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,18 +12,18 @@ import (
 )
 
 func CreateRirCacheDir() {
-	for provider, _ := range Providers {
-		path := filepath.Join(GetRirDir(), provider)
+	for _, provider := range Providers {
+		path := filepath.Join(GetRirDir(), provider.Name())
 		os.MkdirAll(path, 0700)
 	}
 }
 
 func Refresh() {
-	refresh := make(chan string)
-	uptodate := make(chan string)
+	refresh := make(chan Provider)
+	uptodate := make(chan Provider)
 
-	for provider, _ := range Providers {
-		go func(p string) {
+	for _, provider := range Providers {
+		go func(p Provider) {
 			local := localMd5For(p)
 			remote := remoteMd5For(p)
 			if local != remote || (remote == "" && local == "") {
@@ -36,53 +34,36 @@ func Refresh() {
 		}(provider)
 	}
 
-	for i := 0; i < len(Providers); i++ {
+	for range Providers {
 		select {
 		case r := <-refresh:
-			log.Printf("Need to refresh %s", r)
-			CopyDataToFile(Fetch(r), GetDataFile(r))
+			log.Printf("Need to refresh %s", r.Name())
+			CopyDataToFile(r.GetData(), GetDataFile(r.Name()))
 		case u := <-uptodate:
-			log.Printf("%s is up to date", u)
+			log.Printf("%s is up to date", u.Name())
 		}
 	}
 }
 
-func Fetch(provider string) io.Reader {
-	log.Printf("Fetching %s data", provider)
-	response, err := http.Get(Providers[provider])
+func localMd5For(provider Provider) string {
+	content, err := ioutil.ReadAll(GetDataFile(provider.Name()))
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer response.Body.Close()
-
-	if status := response.StatusCode; status != 200 {
-		log.Fatalf("HTTP call returned %d", status)
-	}
-
-	content, _ := ioutil.ReadAll(response.Body)
-
-	return bytes.NewBuffer(content)
-}
-
-func localMd5For(provider string) string {
-	content, err := ioutil.ReadAll(GetDataFile(provider))
-	if err != nil {
-		log.Fatalf("Cannot checksum local file for %s. %s", provider, err)
+		log.Fatalf("Cannot checksum local file for %s. %s", provider.Name(), err)
 	}
 	sum := md5.Sum(content)
-	log.Printf("Local md5 for %s is %x", provider, sum)
+	log.Printf("Local md5 for %s is %x", provider.Name(), sum)
 	return fmt.Sprintf("%x", sum)
 }
 
-func remoteMd5For(provider string) string {
-	resp, err := http.Get(Providers[provider] + ".md5")
+func remoteMd5For(provider Provider) string {
+	resp, err := http.Get(provider.Url() + ".md5")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
 
 	if status := resp.StatusCode; status != 200 {
-		log.Printf("Cannot GET md5 for %s. Call returned %d", provider, status)
+		log.Printf("Cannot GET md5 for %s. Call returned %d", provider.Name(), status)
 		return ""
 	}
 
@@ -94,6 +75,6 @@ func remoteMd5For(provider string) string {
 		return ""
 	}
 
-	log.Printf("Remote md5 for %s is %s", provider, string(matches[1]))
+	log.Printf("Remote md5 for %s is %s", provider.Name(), string(matches[1]))
 	return string(matches[1])
 }
