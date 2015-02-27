@@ -2,13 +2,32 @@ package reader
 
 import (
 	"bytes"
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/simcap/rir/reader"
 )
+
+func BenchmarkReader(b *testing.B) {
+	path := filepath.Join(os.Getenv("HOME"), ".rir", "ripencc", "latest")
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal("Cannot read file for bench. %v", err)
+	}
+	if len(content) == 0 {
+		log.Fatal(" File for bench is empty!")
+	}
+	b.ResetTimer()
+	reader.NewReader(bytes.NewBuffer(content)).Read()
+}
 
 func TestParsingRegularFile(t *testing.T) {
 	data := bytes.NewBufferString(regularData)
 
-	records, _ := NewReader(data).Read()
+	records, _ := reader.NewReader(data).Read()
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
@@ -49,8 +68,8 @@ func TestParsingRegularFile(t *testing.T) {
 func TestRaiseErrors(t *testing.T) {
 	data := bytes.NewBufferString(faultyData)
 
-	_, err := NewReader(data).Read()
-	perr, _ := err.(*ParseError)
+	_, err := reader.NewReader(data).Read()
+	perr, _ := err.(*reader.ParseError)
 
 	if err == nil {
 		t.Error("expecting an error to occur")
