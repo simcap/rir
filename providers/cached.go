@@ -28,22 +28,21 @@ func (p *CachedProvider) GetData() io.Reader {
 	f := p.GetFile()
 	defer f.Close()
 	finfo, _ := f.Stat()
-	if finfo.Size() == 0 || p.isStale(f) {
+	if finfo.Size() == 0 || p.isStale() {
 		log.Printf("%s data need refresh", p.Name())
 		data := p.DefaultProvider.GetData()
 		CopyDataToFile(data, f)
 	}
 
-	f = p.GetFile()
-	content, _ := ioutil.ReadAll(f)
+	content, _ := ioutil.ReadFile(f.Name())
 	return bytes.NewBuffer(content)
 }
 
-func (p *CachedProvider) isStale(f *os.File) bool {
-	local := p.localMd5(f)
+func (p *CachedProvider) isStale() bool {
+	log.Printf("Checking freshness for %s", p.Name())
+	local := p.localMd5()
 	remote := p.remoteMd5()
 	return (local != remote) || (remote == "" && local == "")
-
 }
 
 func GetCacheDir() string {
@@ -63,20 +62,27 @@ func CopyDataToFile(data io.Reader, dest *os.File) {
 	if _, err := io.Copy(writer, data); err != nil {
 		log.Fatal(err)
 	}
-	writer.Flush()
+	err := writer.Flush()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Finished copying to %s", dest.Name())
 }
 
 func (p *CachedProvider) GetFile() *os.File {
-	path := filepath.Join(GetCacheDir(), p.Name(), "latest")
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0700)
+	f, err := os.OpenFile(p.filePath(), os.O_CREATE|os.O_RDWR, 0700)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return f
 }
 
-func (p *CachedProvider) localMd5(f *os.File) string {
-	content, err := ioutil.ReadAll(f)
+func (p *CachedProvider) filePath() string {
+	return filepath.Join(GetCacheDir(), p.Name(), "latest")
+}
+
+func (p *CachedProvider) localMd5() string {
+	content, err := ioutil.ReadFile(p.filePath())
 	if err != nil {
 		log.Fatalf("Cannot checksum local file for %s. %s", p.Name(), err)
 	}
