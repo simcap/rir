@@ -20,7 +20,13 @@ func main() {
 		go fetch(provider, collect)
 	}
 
-	results := []*reader.Records{<-collect, <-collect, <-collect, <-collect}
+	results := []*reader.Records{}
+	for range cache.Providers {
+		select {
+		case r := <-collect:
+			results = append(results, r)
+		}
+	}
 
 	for _, result := range results {
 		log.Printf("%d %d %d %d", result.Count, result.AsnCount, result.Ipv4Count, result.Ipv6Count)
