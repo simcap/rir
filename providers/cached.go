@@ -29,6 +29,7 @@ func (p *CachedProvider) GetData() io.Reader {
 	defer f.Close()
 	finfo, _ := f.Stat()
 	if finfo.Size() == 0 || p.isStale(f) {
+		log.Printf("%s data need refresh", p.Name())
 		data := p.DefaultProvider.GetData()
 		CopyDataToFile(data, f)
 	}
@@ -79,9 +80,7 @@ func (p *CachedProvider) localMd5(f *os.File) string {
 	if err != nil {
 		log.Fatalf("Cannot checksum local file for %s. %s", p.Name(), err)
 	}
-	sum := md5.Sum(content)
-	log.Printf("Local md5 for %s is %x", p.Name(), sum)
-	return fmt.Sprintf("%x", sum)
+	return fmt.Sprintf("%x", md5.Sum(content))
 }
 
 func (p *CachedProvider) remoteMd5() string {
@@ -104,6 +103,5 @@ func (p *CachedProvider) remoteMd5() string {
 		return ""
 	}
 
-	log.Printf("Remote md5 for %s is %s", p.Name(), string(matches[1]))
 	return string(matches[1])
 }

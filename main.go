@@ -33,9 +33,8 @@ func main() {
 }
 
 func fetch(provider providers.Provider, results chan<- *reader.Records) {
-	data := provider.GetData()
-	log.Printf("Parsing results for %s", provider.Name())
-	records, parseErr := reader.NewReader(data).Read()
+	log.Printf("Parsing %s data", provider.Name())
+	records, parseErr := reader.NewReader(provider.GetData()).Read()
 	if parseErr != nil {
 		log.Fatal(parseErr)
 	}

@@ -52,10 +52,17 @@ var (
 			"apnic",
 			"http://ftp.apnic.net/stats/apnic/delegated-apnic-latest",
 		),
-		//&CachedProvider{&DefaultProvider{
-		//}},
+		NewCachedProvider(
+			"lacnic",
+			"http://ftp.apnic.net/stats/lacnic/delegated-lacnic-latest",
+		),
+		NewCachedProvider(
+			"ripencc",
+			"http://ftp.apnic.net/stats/ripe-ncc/delegated-ripencc-latest",
+		),
+		//NewCachedProvider(
+		//	"iana",
+		//	"http://ftp.apnic.net/stats/iana/delegated-iana-latest",
+		//),
 	}
-	//		"iana":    "http://ftp.apnic.net/stats/iana/delegated-iana-latest",
-	//		"lacnic":  "http://ftp.apnic.net/stats/lacnic/delegated-lacnic-latest",
-	//		"ripencc": "http://ftp.apnic.net/stats/ripe-ncc/delegated-ripencc-latest",
 )
