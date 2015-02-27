@@ -32,7 +32,9 @@ func (p *CachedProvider) GetData() io.Reader {
 
 	fileage := time.Since(finfo.ModTime()).Seconds()
 
-	if (finfo.Size() > 0 && fileage > 86400.0) && (finfo.Size() == 0 || p.isStale()) {
+	if finfo.Size() > 0 && fileage < 86400.0 {
+		log.Printf("No refresh for %s", p.Name())
+	} else if finfo.Size() == 0 || p.isStale() {
 		log.Printf("%s data need refresh", p.Name())
 		data := p.DefaultProvider.GetData()
 		CopyDataToFile(data, f)
