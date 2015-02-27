@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 )
 
 type CachedProvider struct {
@@ -28,7 +29,10 @@ func (p *CachedProvider) GetData() io.Reader {
 	f := p.GetFile()
 	defer f.Close()
 	finfo, _ := f.Stat()
-	if finfo.Size() == 0 || p.isStale() {
+
+	fileage := time.Since(finfo.ModTime()).Seconds()
+
+	if (finfo.Size() > 0 && fileage > 86400.0) && (finfo.Size() == 0 || p.isStale()) {
 		log.Printf("%s data need refresh", p.Name())
 		data := p.DefaultProvider.GetData()
 		CopyDataToFile(data, f)
