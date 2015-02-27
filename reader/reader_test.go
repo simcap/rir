@@ -11,6 +11,8 @@ import (
 	"github.com/simcap/rir/reader"
 )
 
+// Fri Feb 27 22:11:38 CET 2015
+// BenchmarkReader	       1	1181852831 ns/op (~1.18s)
 func BenchmarkReader(b *testing.B) {
 	path := filepath.Join(os.Getenv("HOME"), ".rir", "ripencc", "latest")
 	content, err := ioutil.ReadFile(path)
