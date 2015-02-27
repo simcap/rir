@@ -13,7 +13,6 @@ import (
 
 type Provider interface {
 	Name() string
-	Url() string
 	GetData() io.Reader
 	IsStale() bool
 }
@@ -25,10 +24,6 @@ type DefaultProvider struct {
 
 func (p *DefaultProvider) Name() string {
 	return p.name
-}
-
-func (p *DefaultProvider) Url() string {
-	return p.url
 }
 
 func (p *DefaultProvider) IsStale() bool {
@@ -65,7 +60,7 @@ func (p *DefaultProvider) localMd5() string {
 }
 
 func (p *DefaultProvider) remoteMd5() string {
-	resp, err := http.Get(p.Url() + ".md5")
+	resp, err := http.Get(p.url + ".md5")
 	if err != nil {
 		log.Fatal(err)
 	}
