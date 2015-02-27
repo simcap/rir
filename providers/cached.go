@@ -1,6 +1,7 @@
-package cache
+package providers
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"fmt"
@@ -9,29 +10,22 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 )
-
-type Provider interface {
-	Name() string
-	GetData() io.Reader
-}
-
-type DefaultProvider struct {
-	name string
-	url  string
-}
-
-func (p *DefaultProvider) Name() string {
-	return p.name
-}
 
 type CachedProvider struct {
 	*DefaultProvider
 }
 
+func NewCachedProvider(name string, url string) *CachedProvider {
+	return &CachedProvider{
+		&DefaultProvider{name, url},
+	}
+}
+
 func (p *CachedProvider) GetData() io.Reader {
-	f := GetDataFile(p.Name())
+	f := p.GetFile()
 	defer f.Close()
 	finfo, _ := f.Stat()
 	if finfo.Size() == 0 || p.isStale(f) {
@@ -39,7 +33,7 @@ func (p *CachedProvider) GetData() io.Reader {
 		CopyDataToFile(data, f)
 	}
 
-	f = GetDataFile(p.Name())
+	f = p.GetFile()
 	content, _ := ioutil.ReadAll(f)
 	return bytes.NewBuffer(content)
 }
@@ -48,26 +42,36 @@ func (p *CachedProvider) isStale(f *os.File) bool {
 	local := p.localMd5(f)
 	remote := p.remoteMd5()
 	return (local != remote) || (remote == "" && local == "")
+
 }
 
-func (p *DefaultProvider) GetData() io.Reader {
-	log.Printf("Fetching %s data", p.Name())
-	response, err := http.Get(p.url)
+func GetCacheDir() string {
+	return filepath.Join(os.Getenv("HOME"), ".rir")
+}
+
+func CreateCacheDir() {
+	for _, provider := range All {
+		path := filepath.Join(GetCacheDir(), provider.Name())
+		os.MkdirAll(path, 0700)
+	}
+}
+
+func CopyDataToFile(data io.Reader, dest *os.File) {
+	log.Printf("Start copying to %s", dest.Name())
+	writer := bufio.NewWriter(dest)
+	if _, err := io.Copy(writer, data); err != nil {
+		log.Fatal(err)
+	}
+	writer.Flush()
+}
+
+func (p *CachedProvider) GetFile() *os.File {
+	path := filepath.Join(GetCacheDir(), p.Name(), "latest")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0700)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer response.Body.Close()
-
-	if status := response.StatusCode; status != 200 {
-		log.Fatalf("HTTP call returned %d", status)
-	}
-
-	content, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return bytes.NewBuffer(content)
+	return f
 }
 
 func (p *CachedProvider) localMd5(f *os.File) string {
@@ -103,19 +107,3 @@ func (p *CachedProvider) remoteMd5() string {
 	log.Printf("Remote md5 for %s is %s", p.Name(), string(matches[1]))
 	return string(matches[1])
 }
-
-var (
-	Providers = []*CachedProvider{
-		&CachedProvider{&DefaultProvider{
-			"afrinic",
-			"http://ftp.apnic.net/stats/afrinic/delegated-afrinic-latest",
-		}},
-		//&CachedProvider{&DefaultProvider{
-		//	"apnic",
-		//	"http://ftp.apnic.net/stats/apnic/delegated-apnic-latest",
-		//}},
-	}
-	//		"iana":    "http://ftp.apnic.net/stats/iana/delegated-iana-latest",
-	//		"lacnic":  "http://ftp.apnic.net/stats/lacnic/delegated-lacnic-latest",
-	//		"ripencc": "http://ftp.apnic.net/stats/ripe-ncc/delegated-ripencc-latest",
-)

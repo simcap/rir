@@ -2,27 +2,25 @@ package main
 
 import (
 	"log"
-	"os"
-	"path/filepath"
 	"runtime"
 
-	"github.com/simcap/rir/cache"
+	"github.com/simcap/rir/providers"
 	"github.com/simcap/rir/reader"
 )
 
 func main() {
-	createRirCacheDir()
+	providers.CreateCacheDir()
 
-	collect := make(chan *reader.Records, len(cache.Providers))
+	collect := make(chan *reader.Records, len(providers.All))
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	for _, provider := range cache.Providers {
+	for _, provider := range providers.All {
 		go fetch(provider, collect)
 	}
 
 	results := []*reader.Records{}
-	for range cache.Providers {
+	for range providers.All {
 		select {
 		case r := <-collect:
 			results = append(results, r)
@@ -34,7 +32,7 @@ func main() {
 	}
 }
 
-func fetch(provider cache.Provider, results chan<- *reader.Records) {
+func fetch(provider providers.Provider, results chan<- *reader.Records) {
 	data := provider.GetData()
 	log.Printf("Parsing results for %s", provider.Name())
 	records, parseErr := reader.NewReader(data).Read()
@@ -42,11 +40,4 @@ func fetch(provider cache.Provider, results chan<- *reader.Records) {
 		log.Fatal(parseErr)
 	}
 	results <- records
-}
-
-func createRirCacheDir() {
-	for _, provider := range cache.Providers {
-		path := filepath.Join(cache.GetRirDir(), provider.Name())
-		os.MkdirAll(path, 0700)
-	}
 }
