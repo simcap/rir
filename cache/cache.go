@@ -14,26 +14,14 @@ func CreateRirCacheDir() {
 }
 
 func Refresh() {
-	refresh := make(chan Provider)
-	uptodate := make(chan Provider)
-
 	for _, provider := range Providers {
 		go func(p Provider) {
 			if p.IsStale() {
-				refresh <- p
+				log.Printf("Need to refresh %s", p.Name())
+				CopyDataToFile(p.GetData(), GetDataFile(p.Name()))
 			} else {
-				uptodate <- p
+				log.Printf("%s is up to date", p.Name())
 			}
 		}(provider)
-	}
-
-	for range Providers {
-		select {
-		case r := <-refresh:
-			log.Printf("Need to refresh %s", r.Name())
-			CopyDataToFile(r.GetData(), GetDataFile(r.Name()))
-		case u := <-uptodate:
-			log.Printf("%s is up to date", u.Name())
-		}
 	}
 }
