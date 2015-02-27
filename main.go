@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/simcap/rir/cache"
@@ -9,8 +11,7 @@ import (
 )
 
 func main() {
-	cache.CreateRirCacheDir()
-	cache.Refresh()
+	createRirCacheDir()
 
 	collect := make(chan *reader.Records, len(cache.Providers))
 
@@ -41,4 +42,11 @@ func fetch(provider cache.Provider, results chan<- *reader.Records) {
 		log.Fatal(parseErr)
 	}
 	results <- records
+}
+
+func createRirCacheDir() {
+	for _, provider := range cache.Providers {
+		path := filepath.Join(cache.GetRirDir(), provider.Name())
+		os.MkdirAll(path, 0700)
+	}
 }

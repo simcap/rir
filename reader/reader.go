@@ -111,7 +111,7 @@ func (r *Reader) Read() (records *Records, err error) {
 
 	asnCount, ipv4Count, ipv6Count := r.recordsCountByType(summaries)
 
-	return &(Records{
+	return &Records{
 		Version:   version.Version,
 		Count:     version.Records,
 		AsnCount:  asnCount,
@@ -119,7 +119,7 @@ func (r *Reader) Read() (records *Records, err error) {
 		Ipv6Count: ipv6Count,
 		Asns:      asnRecords,
 		Ips:       ipRecords,
-	}), nil
+	}, nil
 }
 
 func (r *Reader) error(err error) error {

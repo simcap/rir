@@ -19,7 +19,6 @@ func GetDataFile(provider string) *os.File {
 
 func CopyDataToFile(data io.Reader, dest *os.File) {
 	log.Printf("Start copying to %s", dest.Name())
-	defer dest.Close()
 	writer := bufio.NewWriter(dest)
 	if _, err := io.Copy(writer, data); err != nil {
 		log.Fatal(err)

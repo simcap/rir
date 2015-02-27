@@ -8,13 +8,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 )
 
 type Provider interface {
 	Name() string
 	GetData() io.Reader
-	IsStale() bool
 }
 
 type DefaultProvider struct {
@@ -26,8 +26,26 @@ func (p *DefaultProvider) Name() string {
 	return p.name
 }
 
-func (p *DefaultProvider) IsStale() bool {
-	local := p.localMd5()
+type CachedProvider struct {
+	*DefaultProvider
+}
+
+func (p *CachedProvider) GetData() io.Reader {
+	f := GetDataFile(p.Name())
+	defer f.Close()
+	finfo, _ := f.Stat()
+	if finfo.Size() == 0 || p.isStale(f) {
+		data := p.DefaultProvider.GetData()
+		CopyDataToFile(data, f)
+	}
+
+	f = GetDataFile(p.Name())
+	content, _ := ioutil.ReadAll(f)
+	return bytes.NewBuffer(content)
+}
+
+func (p *CachedProvider) isStale(f *os.File) bool {
+	local := p.localMd5(f)
 	remote := p.remoteMd5()
 	return (local != remote) || (remote == "" && local == "")
 }
@@ -44,13 +62,16 @@ func (p *DefaultProvider) GetData() io.Reader {
 		log.Fatalf("HTTP call returned %d", status)
 	}
 
-	content, _ := ioutil.ReadAll(response.Body)
+	content, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return bytes.NewBuffer(content)
 }
 
-func (p *DefaultProvider) localMd5() string {
-	content, err := ioutil.ReadAll(GetDataFile(p.Name()))
+func (p *CachedProvider) localMd5(f *os.File) string {
+	content, err := ioutil.ReadAll(f)
 	if err != nil {
 		log.Fatalf("Cannot checksum local file for %s. %s", p.Name(), err)
 	}
@@ -59,7 +80,7 @@ func (p *DefaultProvider) localMd5() string {
 	return fmt.Sprintf("%x", sum)
 }
 
-func (p *DefaultProvider) remoteMd5() string {
+func (p *CachedProvider) remoteMd5() string {
 	resp, err := http.Get(p.url + ".md5")
 	if err != nil {
 		log.Fatal(err)
@@ -84,15 +105,15 @@ func (p *DefaultProvider) remoteMd5() string {
 }
 
 var (
-	Providers = []*DefaultProvider{
-		&DefaultProvider{
+	Providers = []*CachedProvider{
+		&CachedProvider{&DefaultProvider{
 			"afrinic",
 			"http://ftp.apnic.net/stats/afrinic/delegated-afrinic-latest",
-		},
-		&DefaultProvider{
-			"apnic",
-			"http://ftp.apnic.net/stats/apnic/delegated-apnic-latest",
-		},
+		}},
+		//&CachedProvider{&DefaultProvider{
+		//	"apnic",
+		//	"http://ftp.apnic.net/stats/apnic/delegated-apnic-latest",
+		//}},
 	}
 	//		"iana":    "http://ftp.apnic.net/stats/iana/delegated-iana-latest",
 	//		"lacnic":  "http://ftp.apnic.net/stats/lacnic/delegated-lacnic-latest",
