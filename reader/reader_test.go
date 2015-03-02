@@ -13,6 +13,7 @@ import (
 
 // Fri Feb 27 22:11:38 CET 2015 File of 4.2M
 // BenchmarkReader	       1	1181852831 ns/op (~1.18s)
+// BenchmarkReader	       1	1226419837 ns/op
 func BenchmarkReader(b *testing.B) {
 	path := filepath.Join(os.Getenv("HOME"), ".rir", "ripencc", "latest")
 	content, err := ioutil.ReadFile(path)
@@ -23,7 +24,29 @@ func BenchmarkReader(b *testing.B) {
 		log.Fatal(" File for bench is empty!")
 	}
 	b.ResetTimer()
-	reader.NewReader(bytes.NewBuffer(content)).Read()
+	data := bytes.NewBuffer(content)
+	reader.NewReader(data).Read()
+}
+
+func findIpWith(records *reader.Records, address string) reader.IpRecord {
+	for _, ip := range records.Ips {
+		if address == ip.Start.String() {
+			return ip
+		}
+	}
+	log.Fatalf("Cannot find ip with address %s", address)
+	return reader.IpRecord{}
+}
+
+func findAsnWith(records *reader.Records, number int) reader.AsnRecord {
+	for _, asn := range records.Asns {
+		if number == asn.Start {
+			return asn
+		}
+	}
+	log.Fatal("Cannot find asn with number %s", number)
+	return reader.AsnRecord{}
+
 }
 
 func TestParsingRegularFile(t *testing.T) {
@@ -49,35 +72,29 @@ func TestParsingRegularFile(t *testing.T) {
 		t.Errorf("ipv6 count: expected %d got %d", ipv6Count, records.Ipv6Count)
 	}
 
-	firstAsnRecord := records.Asns[0]
-	if firstAsnRecord.Status != "allocated" {
-		t.Errorf("asn record status: expected 'allocated' got %q", firstAsnRecord.Status)
-	}
-	if firstAsnRecord.Start != 173 {
-		t.Errorf("asn record status: expected 173 got %q", firstAsnRecord.Start)
+	if len(records.Asns) != 2 {
+		t.Errorf("asn real count: expected %d got %d", 2, len(records.Asns))
 	}
 
-	firstIpRecord := records.Ips[1]
-	if firstIpRecord.Status != "assigned" {
-		t.Errorf("asn record status: expected 'assigned' got %q", firstIpRecord.Status)
-	}
-	if firstIpRecord.Start.String() != "203.81.160.0" {
-		t.Errorf("asn record status: expected '203.81.160.0' got %q", firstIpRecord.Start.String())
+	if len(records.Ips) != 9 {
+		t.Errorf("ips real count: expected %d got %d. Content:", 9, len(records.Ips), records.Ips)
 	}
 
-}
-
-func TestRaiseErrors(t *testing.T) {
-	data := bytes.NewBufferString(faultyData)
-
-	_, err := reader.NewReader(data).Read()
-	perr, _ := err.(*reader.ParseError)
-
-	if err == nil {
-		t.Error("expecting an error to occur")
-	} else if perr.Line != 5 {
-		t.Errorf("error line: expecting line 5 got %d", perr.Line)
+	asnRecord := findAsnWith(records, 173)
+	if asnRecord.Status != "allocated" {
+		t.Errorf("asn record status: expected 'allocated' got %q", asnRecord.Status)
 	}
+
+	ipRecord := findIpWith(records, "203.81.160.0")
+	if ipRecord.Status != "assigned" {
+		t.Errorf("ip record status: expected 'assigned' got %q", ipRecord.Status)
+	}
+
+	otherIpRecord := findIpWith(records, "193.9.26.0")
+	if otherIpRecord.Status != "assigned" {
+		t.Errorf("ip record status: expected 'assigned' got %q", otherIpRecord.Status)
+	}
+
 }
 
 var regularData = `2.3|apnic|20110113|23486|19850701|20110112|+1000
@@ -97,9 +114,3 @@ apnic|JP|ipv6|2001:200:4000::|34|20030423|allocated
 apnic|JP|ipv6|2001:200:8000::|33|20030423|allocated
 ripencc|PL|ipv4|193.9.25.0|256|20090225|assigned
 ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned`
-
-var faultyData = `2.3|apnic|20110113|23486|19850701|20110112|+1000
-apnic|*|asn|*|3986|summary
-apnic|*|ipv4|*|17947|summary
-apnic|*|ipv6|*|1553|summary
-2.3|apnic|20110113|23486|19850701|20110112|+1000`

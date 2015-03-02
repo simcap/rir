@@ -9,6 +9,8 @@ import (
 )
 
 func main() {
+	log.Printf("Numbers of CPU %d", runtime.NumCPU())
+	//runtime.GOMAXPROCS(runtime.NumCPU())
 	providers.CreateCacheDir()
 
 	collect := make(chan *reader.Records, len(providers.All))

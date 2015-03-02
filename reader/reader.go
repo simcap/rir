@@ -2,38 +2,81 @@ package reader
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
-	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-type ParseError struct {
-	Line int
-	Err  error
-}
-
-func (e *ParseError) Error() string {
-	return fmt.Sprintf("line %d: %s", e.Line, e.Err)
-}
-
 var (
-	ErrMultipleVersionLine = errors.New("redundant version line found")
+	ErrMultipleVersionLine = errors.New("multiple version line found")
 )
 
 type Reader struct {
-	scanner       *bufio.Scanner
-	lineCount     int
-	currentLine   string
-	fields        []string
-	versionParsed bool
+	scanners []*ConcurrentScanner
 }
 
 func NewReader(r io.Reader) *Reader {
-	return &Reader{scanner: bufio.NewScanner(r)}
+	scans := []*ConcurrentScanner{}
+	for _, r := range splitReader(r, 5) {
+		scans = append(scans, NewConcurrentScanner(r))
+	}
+	return &Reader{scanners: scans}
+}
+
+func splitReader(r io.Reader, number int) []io.Reader {
+	var content []byte
+	if v, ok := r.(*bytes.Buffer); ok {
+		content = v.Bytes()
+	} else {
+		content, _ = ioutil.ReadAll(r)
+	}
+
+	totalSize := len(content)
+	sectionSize := totalSize / number
+
+	readers := []io.Reader{}
+	var start, toread, index int
+	for i := 1; i <= number; i++ {
+		if i < number {
+			index = nextNewlineIndex(content, i*sectionSize)
+			toread = index - start
+		} else {
+			toread = totalSize - start
+		}
+
+		readers = append(readers,
+			io.NewSectionReader(bytes.NewReader(content), int64(start), int64(toread)),
+		)
+		start = index
+	}
+
+	return readers
+}
+
+const searchFor int = 100
+
+func nextNewlineIndex(content []byte, start int) int {
+	buff := bytes.NewBuffer(content[start:len(content)])
+	index := -1
+	for i := 1; i < searchFor; i++ {
+		b := buff.Next(1)
+		if b[0] == '\n' {
+			index = i
+		}
+
+	}
+	if index == -1 {
+		log.Fatalf("Could not find newline in next %d bytes", searchFor)
+		return index
+	} else {
+		return index + start
+	}
 }
 
 type (
@@ -74,40 +117,48 @@ type (
 )
 
 func (r *Reader) Read() (records *Records, err error) {
+	out := make(chan interface{})
+	for _, scanner := range r.scanners {
+		go func(s *ConcurrentScanner) {
+			q := s.Run()
+			for n := range q {
+				out <- n
+			}
+			out <- true
+		}(scanner)
+	}
+
 	asnRecords := []AsnRecord{}
 	ipRecords := []IpRecord{}
 	summaries := []Summary{}
-	var version *Version
+	var version Version
 
-	for r.scanner.Scan() {
-		line := r.scanner.Text()
-
-		r.currentLine = line
-		r.fields = strings.Split(line, "|")
-		r.lineCount++
-
-		if r.ignoredLine() {
-			continue
-		}
-
-		if r.versionLine() {
-			if r.versionParsed {
-				return nil, r.error(ErrMultipleVersionLine)
+	dones := []bool{}
+Loop:
+	for {
+		select {
+		case value := <-out:
+			switch v := value.(type) {
+			case bool:
+				dones = append(dones, v)
+				if len(dones) == len(r.scanners) {
+					break Loop
+				}
+			case Summary:
+				summaries = append(summaries, v)
+			case IpRecord:
+				ipRecords = append(ipRecords, v)
+			case AsnRecord:
+				asnRecords = append(asnRecords, v)
+			case Version:
+				version = v
+			default:
+				log.Fatalf("Do not know this type %T", v)
 			}
-			version = r.parseVersionLine()
-		} else if r.summaryLine() {
-			summary := r.parseSummaryLine()
-			summaries = append(summaries, summary)
-		} else {
-			if r.ipvLine() {
-				record := r.parseIpRecord()
-				ipRecords = append(ipRecords, record)
-			} else if r.asnLine() {
-				record := r.parseAsnRecord()
-				asnRecords = append(asnRecords, record)
-			}
+
 		}
 	}
+	close(out)
 
 	asnCount, ipv4Count, ipv6Count := r.recordsCountByType(summaries)
 
@@ -122,45 +173,80 @@ func (r *Reader) Read() (records *Records, err error) {
 	}, nil
 }
 
-func (r *Reader) error(err error) error {
-	return &ParseError{Line: r.lineCount, Err: err}
+type ConcurrentScanner struct {
+	scanner     *bufio.Scanner
+	currentLine string
+	fields      []string
 }
 
-func (r *Reader) versionLine() bool {
+func NewConcurrentScanner(r io.Reader) *ConcurrentScanner {
+	return &ConcurrentScanner{scanner: bufio.NewScanner(r)}
+}
+
+func (cs *ConcurrentScanner) Run() chan interface{} {
+	c := make(chan interface{})
+
+	go func() {
+		for cs.scanner.Scan() {
+			cs.currentLine = cs.scanner.Text()
+			cs.fields = strings.Split(cs.currentLine, "|")
+
+			if cs.ignoredLine() {
+				continue
+			}
+
+			if cs.versionLine() {
+				c <- cs.parseVersionLine()
+			} else if cs.summaryLine() {
+				c <- cs.parseSummaryLine()
+			} else {
+				if cs.ipvLine() {
+					c <- cs.parseIpRecord()
+				} else if cs.asnLine() {
+					c <- cs.parseAsnRecord()
+				}
+			}
+		}
+		close(c)
+	}()
+	return c
+
+}
+
+func (cs *ConcurrentScanner) versionLine() bool {
 	version := regexp.MustCompile("^\\d+\\.*\\d*")
-	return version.MatchString(r.currentLine)
+	return version.MatchString(cs.currentLine)
 }
 
-func (r *Reader) ignoredLine() bool {
+func (cs *ConcurrentScanner) ignoredLine() bool {
 	ignored := regexp.MustCompile("^#|^\\s*$")
-	return ignored.MatchString(r.currentLine)
+	return ignored.MatchString(cs.currentLine)
 }
 
-func (r *Reader) summaryLine() bool {
-	return strings.HasSuffix(r.currentLine, "summary")
+func (cs *ConcurrentScanner) summaryLine() bool {
+	return strings.HasSuffix(cs.currentLine, "summary")
 }
 
-func (r *Reader) ipvLine() bool {
-	return strings.HasPrefix(r.fields[2], "ipv")
+func (cs *ConcurrentScanner) ipvLine() bool {
+	return strings.HasPrefix(cs.fields[2], "ipv")
 }
 
-func (r *Reader) asnLine() bool {
-	return strings.HasPrefix(r.fields[2], "asn")
+func (cs *ConcurrentScanner) asnLine() bool {
+	return strings.HasPrefix(cs.fields[2], "asn")
 }
 
-func (r *Reader) parseVersionLine() *Version {
-	version, _ := strconv.ParseFloat(r.fields[0], 64)
-	recordsCount, _ := strconv.Atoi(r.fields[3])
-	r.versionParsed = true
-	return &Version{
-		version, r.fields[1], r.fields[2], recordsCount,
-		r.fields[4], r.fields[5], r.fields[6],
+func (cs *ConcurrentScanner) parseVersionLine() Version {
+	version, _ := strconv.ParseFloat(cs.fields[0], 64)
+	recordsCount, _ := strconv.Atoi(cs.fields[3])
+	return Version{
+		version, cs.fields[1], cs.fields[2], recordsCount,
+		cs.fields[4], cs.fields[5], cs.fields[6],
 	}
 }
 
-func (r *Reader) parseSummaryLine() Summary {
-	count, _ := strconv.Atoi(r.fields[4])
-	return Summary{r.fields[0], r.fields[2], count}
+func (cs *ConcurrentScanner) parseSummaryLine() Summary {
+	count, _ := strconv.Atoi(cs.fields[4])
+	return Summary{cs.fields[0], cs.fields[2], count}
 }
 
 func (r *Reader) recordsCountByType(summaries []Summary) (int, int, int) {
@@ -179,21 +265,21 @@ func (r *Reader) recordsCountByType(summaries []Summary) (int, int, int) {
 	return asn, ipv4, ipv6
 }
 
-func (r *Reader) parseIpRecord() IpRecord {
-	value, _ := strconv.Atoi(r.fields[4])
+func (cs *ConcurrentScanner) parseIpRecord() IpRecord {
+	value, _ := strconv.Atoi(cs.fields[4])
 	return IpRecord{
-		&Record{r.fields[0], r.fields[1], r.fields[2],
-			value, r.fields[5], r.fields[6]},
-		net.ParseIP(r.fields[3]),
+		&Record{cs.fields[0], cs.fields[1], cs.fields[2],
+			value, cs.fields[5], cs.fields[6]},
+		net.ParseIP(cs.fields[3]),
 	}
 }
 
-func (r *Reader) parseAsnRecord() AsnRecord {
-	value, _ := strconv.Atoi(r.fields[4])
-	asnNumber, _ := strconv.Atoi(r.fields[3])
+func (cs *ConcurrentScanner) parseAsnRecord() AsnRecord {
+	value, _ := strconv.Atoi(cs.fields[4])
+	asnNumber, _ := strconv.Atoi(cs.fields[3])
 	return AsnRecord{
-		&Record{r.fields[0], r.fields[1], r.fields[2],
-			value, r.fields[5], r.fields[6]},
+		&Record{cs.fields[0], cs.fields[1], cs.fields[2],
+			value, cs.fields[5], cs.fields[6]},
 		asnNumber,
 	}
 }
