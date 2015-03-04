@@ -11,7 +11,7 @@ import (
 
 func main() {
 	log.Printf("Numbers of CPU %d", runtime.NumCPU())
-	//runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	providers.CreateCacheDir()
 
 	collect := make(chan *scanner.Records, len(providers.All))
