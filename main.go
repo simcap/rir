@@ -6,6 +6,7 @@ import (
 
 	"github.com/simcap/rir/providers"
 	"github.com/simcap/rir/reader"
+	"github.com/simcap/rir/scanner"
 )
 
 func main() {
@@ -13,7 +14,7 @@ func main() {
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	providers.CreateCacheDir()
 
-	collect := make(chan *reader.Records, len(providers.All))
+	collect := make(chan *scanner.Records, len(providers.All))
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -21,7 +22,7 @@ func main() {
 		go fetch(provider, collect)
 	}
 
-	results := []*reader.Records{}
+	results := []*scanner.Records{}
 	for range providers.All {
 		select {
 		case r := <-collect:
@@ -34,7 +35,7 @@ func main() {
 	}
 }
 
-func fetch(provider providers.Provider, results chan<- *reader.Records) {
+func fetch(provider providers.Provider, results chan<- *scanner.Records) {
 	log.Printf("Parsing %s data", provider.Name())
 	data := provider.GetData()
 	records, parseErr := reader.NewReader(data).Read()

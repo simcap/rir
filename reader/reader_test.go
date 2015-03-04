@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/simcap/rir/reader"
+	"github.com/simcap/rir/scanner"
 )
 
 // Fri Feb 27 22:11:38 CET 2015 File of 4.2M
@@ -28,24 +29,24 @@ func BenchmarkReader(b *testing.B) {
 	reader.NewReader(data).Read()
 }
 
-func findIpWith(records *reader.Records, address string) reader.IpRecord {
+func findIpWith(records *scanner.Records, address string) scanner.IpRecord {
 	for _, ip := range records.Ips {
 		if address == ip.Start.String() {
 			return ip
 		}
 	}
 	log.Fatalf("Cannot find ip with address %s", address)
-	return reader.IpRecord{}
+	return scanner.IpRecord{}
 }
 
-func findAsnWith(records *reader.Records, number int) reader.AsnRecord {
+func findAsnWith(records *scanner.Records, number int) scanner.AsnRecord {
 	for _, asn := range records.Asns {
 		if number == asn.Start {
 			return asn
 		}
 	}
 	log.Fatal("Cannot find asn with number %s", number)
-	return reader.AsnRecord{}
+	return scanner.AsnRecord{}
 
 }
 
