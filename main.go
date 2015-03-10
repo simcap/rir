@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"runtime"
+	"sync"
 
 	"github.com/simcap/rir/providers"
 	"github.com/simcap/rir/reader"
@@ -10,24 +10,11 @@ import (
 )
 
 func main() {
-	log.Printf("Numbers of CPU %d", runtime.NumCPU())
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	providers.CreateCacheDir()
 
-	collect := make(chan *scanner.Records, len(providers.All))
-
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	for _, provider := range providers.All {
-		go fetch(provider, collect)
-	}
-
 	results := []*scanner.Records{}
-	for range providers.All {
-		select {
-		case r := <-collect:
-			results = append(results, r)
-		}
+	for records := range retrieveData() {
+		results = append(results, records)
 	}
 
 	for _, result := range results {
@@ -35,12 +22,26 @@ func main() {
 	}
 }
 
-func fetch(provider providers.Provider, results chan<- *scanner.Records) {
-	log.Printf("Parsing %s data", provider.Name())
-	data := provider.GetData()
-	records, parseErr := reader.NewReader(data).Read()
-	if parseErr != nil {
-		log.Fatal(parseErr)
+func retrieveData() chan *scanner.Records {
+	var wg sync.WaitGroup
+	ch := make(chan *scanner.Records)
+
+	for _, provider := range providers.All {
+		wg.Add(1)
+		go func(p providers.Provider) {
+			defer wg.Done()
+			records, err := reader.NewReader(p.GetData()).Read()
+			if err != nil {
+				log.Fatal(err)
+			}
+			ch <- records
+		}(provider)
 	}
-	results <- records
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
 }
