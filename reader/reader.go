@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/simcap/rir/rir"
 	"github.com/simcap/rir/scanner"
 )
 
@@ -21,7 +22,7 @@ func NewReader(r io.Reader) *Reader {
 	return &Reader{scanners: scans}
 }
 
-func (r *Reader) Read() (records *scanner.Records, err error) {
+func (r *Reader) Read() (records *rir.Records, err error) {
 	out := make(chan interface{})
 	for _, scan := range r.scanners {
 		go func(s *scanner.ConcurrentScanner) {
@@ -33,10 +34,10 @@ func (r *Reader) Read() (records *scanner.Records, err error) {
 		}(scan)
 	}
 
-	asnRecords := []scanner.AsnRecord{}
-	ipRecords := []scanner.IpRecord{}
-	summaries := []scanner.Summary{}
-	var version scanner.Version
+	asnRecords := []rir.AsnRecord{}
+	ipRecords := []rir.IpRecord{}
+	summaries := []rir.Summary{}
+	var version rir.Version
 
 	dones := []bool{}
 Loop:
@@ -49,13 +50,13 @@ Loop:
 				if len(dones) == len(r.scanners) {
 					break Loop
 				}
-			case scanner.Summary:
+			case rir.Summary:
 				summaries = append(summaries, v)
-			case scanner.IpRecord:
+			case rir.IpRecord:
 				ipRecords = append(ipRecords, v)
-			case scanner.AsnRecord:
+			case rir.AsnRecord:
 				asnRecords = append(asnRecords, v)
-			case scanner.Version:
+			case rir.Version:
 				version = v
 			default:
 				log.Fatalf("Do not know this type %T", v)
@@ -67,7 +68,7 @@ Loop:
 
 	asnCount, ipv4Count, ipv6Count := r.recordsCountByType(summaries)
 
-	return &scanner.Records{
+	return &rir.Records{
 		Version:   version.Version,
 		Count:     version.Records,
 		AsnCount:  asnCount,
@@ -77,7 +78,7 @@ Loop:
 		Ips:       ipRecords,
 	}, nil
 }
-func (r *Reader) recordsCountByType(summaries []scanner.Summary) (int, int, int) {
+func (r *Reader) recordsCountByType(summaries []rir.Summary) (int, int, int) {
 	var asn, ipv4, ipv6 int
 	for _, current := range summaries {
 		if current.Type == "asn" {

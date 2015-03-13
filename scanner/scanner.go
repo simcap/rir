@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/simcap/rir/rir"
 )
 
 type ConcurrentScanner struct {
@@ -71,72 +73,35 @@ func (cs *ConcurrentScanner) asnLine() bool {
 	return strings.HasPrefix(cs.fields[2], "asn")
 }
 
-func (cs *ConcurrentScanner) parseVersionLine() Version {
+func (cs *ConcurrentScanner) parseVersionLine() rir.Version {
 	version, _ := strconv.ParseFloat(cs.fields[0], 64)
 	recordsCount, _ := strconv.Atoi(cs.fields[3])
-	return Version{
+	return rir.Version{
 		version, cs.fields[1], cs.fields[2], recordsCount,
 		cs.fields[4], cs.fields[5], cs.fields[6],
 	}
 }
 
-func (cs *ConcurrentScanner) parseSummaryLine() Summary {
+func (cs *ConcurrentScanner) parseSummaryLine() rir.Summary {
 	count, _ := strconv.Atoi(cs.fields[4])
-	return Summary{cs.fields[0], cs.fields[2], count}
+	return rir.Summary{cs.fields[0], cs.fields[2], count}
 }
 
-func (cs *ConcurrentScanner) parseIpRecord() IpRecord {
+func (cs *ConcurrentScanner) parseIpRecord() rir.IpRecord {
 	value, _ := strconv.Atoi(cs.fields[4])
-	return IpRecord{
-		&Record{cs.fields[0], cs.fields[1], cs.fields[2],
+	return rir.IpRecord{
+		&rir.Record{cs.fields[0], cs.fields[1], cs.fields[2],
 			value, cs.fields[5], cs.fields[6]},
 		net.ParseIP(cs.fields[3]),
 	}
 }
 
-func (cs *ConcurrentScanner) parseAsnRecord() AsnRecord {
+func (cs *ConcurrentScanner) parseAsnRecord() rir.AsnRecord {
 	value, _ := strconv.Atoi(cs.fields[4])
 	asnNumber, _ := strconv.Atoi(cs.fields[3])
-	return AsnRecord{
-		&Record{cs.fields[0], cs.fields[1], cs.fields[2],
+	return rir.AsnRecord{
+		&rir.Record{cs.fields[0], cs.fields[1], cs.fields[2],
 			value, cs.fields[5], cs.fields[6]},
 		asnNumber,
 	}
 }
-
-type (
-	Summary struct {
-		Registry, Type string
-		Count          int
-	}
-
-	Version struct {
-		Version                       float64
-		Registry, Serial              string
-		Records                       int
-		StartDate, EndDate, UtcOffset string
-	}
-
-	Record struct {
-		Registry, Cc, Type string
-		Value              int
-		Date, Status       string
-	}
-
-	IpRecord struct {
-		*Record
-		Start net.IP
-	}
-
-	AsnRecord struct {
-		*Record
-		Start int
-	}
-
-	Records struct {
-		Version                               float64
-		Count, AsnCount, Ipv4Count, Ipv6Count int
-		Asns                                  []AsnRecord
-		Ips                                   []IpRecord
-	}
-)

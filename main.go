@@ -9,7 +9,7 @@ import (
 
 	"github.com/simcap/rir/providers"
 	"github.com/simcap/rir/reader"
-	"github.com/simcap/rir/scanner"
+	"github.com/simcap/rir/rir"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 
 	providers.CreateCacheDir()
 
-	results := []*scanner.Records{}
+	results := []*rir.Records{}
 	for records := range retrieveData() {
 		results = append(results, records)
 	}
@@ -55,9 +55,9 @@ func main() {
 	}
 }
 
-func retrieveData() chan *scanner.Records {
+func retrieveData() chan *rir.Records {
 	var wg sync.WaitGroup
-	ch := make(chan *scanner.Records)
+	ch := make(chan *rir.Records)
 
 	for _, provider := range providers.All {
 		wg.Add(1)
