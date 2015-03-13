@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"math"
 	"net"
 	"sync"
 
@@ -29,13 +28,8 @@ func main() {
 	if query := *ipquery; query != "" {
 		for _, region := range results {
 			for _, iprecord := range region.Ips {
-				if iprecord.Type == "ipv4" {
-					ones := 32 - int(math.Log2(float64(iprecord.Value)))
-					ipnet := net.IPNet{iprecord.Start, net.CIDRMask(ones, 32)}
-
-					if ipnet.Contains(net.ParseIP(query)) {
-						log.Printf("Country %s %s (%d hosts)", iprecord.Cc, iprecord.Start, iprecord.Value)
-					}
+				if iprecord.Net().Contains(net.ParseIP(query)) {
+					log.Printf("Country %s %s (%d hosts)", iprecord.Cc, iprecord.Start, iprecord.Value)
 				}
 			}
 		}
