@@ -13,7 +13,6 @@ import (
 
 func main() {
 	country := flag.String("c", "", "2 letters string of the country (ISO 3166)")
-	iptype := flag.String("t", "ipv4", "type of IP addresses")
 	ipquery := flag.String("q", "", "ip address to which to resolve country")
 
 	providers.CreateCacheDir()
@@ -24,29 +23,59 @@ func main() {
 	}
 
 	flag.Parse()
+	query := Query{results, *country, *ipquery}
 
-	if query := *ipquery; query != "" {
-		for _, region := range results {
-			for _, iprecord := range region.Ips {
-				if iprecord.Net().Contains(net.ParseIP(query)) {
-					log.Printf("Country %s %s (%d hosts)", iprecord.Cc, iprecord.Start, iprecord.Value)
-				}
-			}
-		}
+	var all []rir.IpRecord
+	if query.IsCountryQuery() {
+		all = query.matchOnCountry()
 	} else {
+		all = query.matchOnIp()
+	}
+	for _, r := range all {
+		log.Print(r)
+	}
+}
 
-		if *country == "" {
-			log.Fatal("Provide a 2 letter code for a country")
-		}
+type Query struct {
+	data     []*rir.Records
+	country  string
+	ipstring string
+}
 
-		for _, region := range results {
-			for _, iprecord := range region.Ips {
-				if iprecord.Cc == *country && iprecord.Type == *iptype {
-					log.Printf("Country %s %s (%d hosts)\n", *country, iprecord.Start, iprecord.Value)
-				}
+func (q *Query) IsCountryQuery() bool {
+	return q.country != ""
+}
+
+func (q *Query) matchOnCountry() []rir.IpRecord {
+	if q.country == "" {
+		log.Fatal("Provide a 2 letter code for a country")
+	}
+
+	var results []rir.IpRecord
+	for _, region := range q.data {
+		for _, iprecord := range region.Ips {
+			if iprecord.Cc == q.country && iprecord.Type == rir.IPv4 {
+				results = append(results, iprecord)
 			}
 		}
 	}
+	return results
+}
+
+func (q *Query) matchOnIp() []rir.IpRecord {
+	if q.ipstring == "" {
+		log.Fatal("Provide a ip address")
+	}
+
+	var results []rir.IpRecord
+	for _, region := range q.data {
+		for _, iprecord := range region.Ips {
+			if iprecord.Net().Contains(net.ParseIP(q.ipstring)) {
+				results = append(results, iprecord)
+			}
+		}
+	}
+	return results
 }
 
 func retrieveData() chan *rir.Records {

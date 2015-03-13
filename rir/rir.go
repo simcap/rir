@@ -1,6 +1,7 @@
 package rir
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"net"
@@ -53,12 +54,19 @@ func (ipr *IpRecord) Net() *net.IPNet {
 	if ipr.Type == IPv4 {
 		hostscount := ipr.Value
 		ones := 32 - int(math.Log2(float64(hostscount)))
-		mask = net.CIDRMask(ones, 32)
+		mask = net.CIDRMask(ones, net.IPv4len*8)
 	} else if ipr.Type == IPv6 {
-		mask = net.CIDRMask(ipr.Value, 128)
+		mask = net.CIDRMask(ipr.Value, net.IPv6len*8)
 	} else {
 		log.Fatalf("no ipnet for ip of type '%s'", ipr.Type)
 	}
 
 	return &net.IPNet{ipr.Start, mask}
+}
+
+func (ipr IpRecord) String() string {
+	if ipr.Type == IPv4 {
+		return fmt.Sprintf("Country %s %s (%d hosts)", ipr.Cc, ipr.Start, ipr.Value)
+	}
+	return fmt.Sprintf("Country %s %s/%d", ipr.Cc, ipr.Start, ipr.Value)
 }
