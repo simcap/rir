@@ -1,7 +1,10 @@
 package main
 
 import (
+	"flag"
 	"log"
+	"math"
+	"net"
 	"sync"
 
 	"github.com/simcap/rir/providers"
@@ -10,6 +13,10 @@ import (
 )
 
 func main() {
+	country := flag.String("c", "", "2 letters string of the country (ISO 3166)")
+	iptype := flag.String("t", "ipv4", "type of IP addresses")
+	ipquery := flag.String("q", "", "ip address to which to resolve country")
+
 	providers.CreateCacheDir()
 
 	results := []*scanner.Records{}
@@ -17,8 +24,34 @@ func main() {
 		results = append(results, records)
 	}
 
-	for _, result := range results {
-		log.Printf("%d %d %d %d", result.Count, result.AsnCount, result.Ipv4Count, result.Ipv6Count)
+	flag.Parse()
+
+	if query := *ipquery; query != "" {
+		for _, region := range results {
+			for _, iprecord := range region.Ips {
+				if iprecord.Type == "ipv4" {
+					ones := 32 - int(math.Log2(float64(iprecord.Value)))
+					ipnet := net.IPNet{iprecord.Start, net.CIDRMask(ones, 32)}
+
+					if ipnet.Contains(net.ParseIP(query)) {
+						log.Printf("Country %s %s (%d hosts)", iprecord.Cc, iprecord.Start, iprecord.Value)
+					}
+				}
+			}
+		}
+	} else {
+
+		if *country == "" {
+			log.Fatal("Provide a 2 letter code for a country")
+		}
+
+		for _, region := range results {
+			for _, iprecord := range region.Ips {
+				if iprecord.Cc == *country && iprecord.Type == *iptype {
+					log.Printf("Country %s %s (%d hosts)\n", *country, iprecord.Start, iprecord.Value)
+				}
+			}
+		}
 	}
 }
 
