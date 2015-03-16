@@ -133,19 +133,22 @@ func (r *Reader) Read() (*Records, error) {
 
 }
 
+var (
+	versionRegex = regexp.MustCompile("^\\d+\\.*\\d*")
+	ignoredRegex = regexp.MustCompile("^#|^\\s*$")
+)
+
 type parser struct {
 	currentLine string
 	fields      []string
 }
 
 func (p *parser) isVersion() bool {
-	version := regexp.MustCompile("^\\d+\\.*\\d*")
-	return version.MatchString(p.currentLine)
+	return versionRegex.MatchString(p.currentLine)
 }
 
 func (p *parser) isIgnored() bool {
-	ignored := regexp.MustCompile("^#|^\\s*$")
-	return ignored.MatchString(p.currentLine)
+	return ignoredRegex.MatchString(p.currentLine)
 }
 
 func (p *parser) isSummary() bool {
@@ -162,33 +165,36 @@ func (p *parser) isAsn() bool {
 
 func (p *parser) parseVersion() *Version {
 	version, _ := strconv.ParseFloat(p.fields[0], 64)
-	recordsCount, _ := strconv.Atoi(p.fields[3])
 	return &Version{
-		version, p.fields[1], p.fields[2], recordsCount,
+		version, p.fields[1], p.fields[2], p.toInt(p.fields[3]),
 		p.fields[4], p.fields[5], p.fields[6],
 	}
 }
 
 func (p *parser) parseSummary() *Summary {
-	count, _ := strconv.Atoi(p.fields[4])
-	return &Summary{p.fields[0], p.fields[2], count}
+	return &Summary{p.fields[0], p.fields[2], p.toInt(p.fields[4])}
 }
 
 func (p *parser) parseIp() *IpRecord {
-	value, _ := strconv.Atoi(p.fields[4])
 	return &IpRecord{
 		&Record{p.fields[0], p.fields[1], p.fields[2],
-			value, p.fields[5], p.fields[6]},
+			p.toInt(p.fields[4]), p.fields[5], p.fields[6]},
 		net.ParseIP(p.fields[3]),
 	}
 }
 
 func (p *parser) parseAsn() *AsnRecord {
-	value, _ := strconv.Atoi(p.fields[4])
-	asnNumber, _ := strconv.Atoi(p.fields[3])
 	return &AsnRecord{
 		&Record{p.fields[0], p.fields[1], p.fields[2],
-			value, p.fields[5], p.fields[6]},
-		asnNumber,
+			p.toInt(p.fields[4]), p.fields[5], p.fields[6]},
+		p.toInt(p.fields[3]),
 	}
+}
+
+func (p *parser) toInt(s string) int {
+	value, err := strconv.Atoi(s)
+	if err != nil {
+		log.Fatalf("cannot convert string '%s' to int: %v", s, err)
+	}
+	return value
 }
