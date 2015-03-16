@@ -13,21 +13,21 @@ func main() {
 
 	CreateCacheDir()
 
-	var results []*Records
+	var data []*Records
 	for records := range retrieveData() {
-		results = append(results, records)
+		data = append(data, records)
 	}
 
 	flag.Parse()
-	query := Query{results, *country, *ipquery}
+	query := Query{data, *country, *ipquery}
 
-	var all []*IpRecord
+	var results []*IpRecord
 	if query.IsCountryQuery() {
-		all = query.matchOnCountry()
+		results = query.matchOnCountry()
 	} else {
-		all = query.matchOnIp()
+		results = query.matchOnIp()
 	}
-	for _, r := range all {
+	for _, r := range results {
 		log.Print(r)
 	}
 }
