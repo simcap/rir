@@ -5,19 +5,15 @@ import (
 	"log"
 	"net"
 	"sync"
-
-	"github.com/simcap/rir/providers"
-	"github.com/simcap/rir/reader"
-	"github.com/simcap/rir/rir"
 )
 
 func main() {
 	country := flag.String("c", "", "2 letters string of the country (ISO 3166)")
 	ipquery := flag.String("q", "", "ip address to which to resolve country")
 
-	providers.CreateCacheDir()
+	CreateCacheDir()
 
-	results := []*rir.Records{}
+	var results []*Records
 	for records := range retrieveData() {
 		results = append(results, records)
 	}
@@ -25,7 +21,7 @@ func main() {
 	flag.Parse()
 	query := Query{results, *country, *ipquery}
 
-	var all []rir.IpRecord
+	var all []*IpRecord
 	if query.IsCountryQuery() {
 		all = query.matchOnCountry()
 	} else {
@@ -37,7 +33,7 @@ func main() {
 }
 
 type Query struct {
-	data     []*rir.Records
+	data     []*Records
 	country  string
 	ipstring string
 }
@@ -46,15 +42,15 @@ func (q *Query) IsCountryQuery() bool {
 	return q.country != ""
 }
 
-func (q *Query) matchOnCountry() []rir.IpRecord {
+func (q *Query) matchOnCountry() []*IpRecord {
 	if q.country == "" {
 		log.Fatal("Provide a 2 letter code for a country")
 	}
 
-	var results []rir.IpRecord
+	var results []*IpRecord
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
-			if iprecord.Cc == q.country && iprecord.Type == rir.IPv4 {
+			if iprecord.Cc == q.country && iprecord.Type == IPv4 {
 				results = append(results, iprecord)
 			}
 		}
@@ -62,12 +58,12 @@ func (q *Query) matchOnCountry() []rir.IpRecord {
 	return results
 }
 
-func (q *Query) matchOnIp() []rir.IpRecord {
+func (q *Query) matchOnIp() []*IpRecord {
 	if q.ipstring == "" {
 		log.Fatal("Provide a ip address")
 	}
 
-	var results []rir.IpRecord
+	var results []*IpRecord
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
 			if iprecord.Net().Contains(net.ParseIP(q.ipstring)) {
@@ -78,15 +74,15 @@ func (q *Query) matchOnIp() []rir.IpRecord {
 	return results
 }
 
-func retrieveData() chan *rir.Records {
+func retrieveData() chan *Records {
 	var wg sync.WaitGroup
-	ch := make(chan *rir.Records)
+	ch := make(chan *Records)
 
-	for _, provider := range providers.All {
+	for _, provider := range AllProviders {
 		wg.Add(1)
-		go func(p providers.Provider) {
+		go func(p Provider) {
 			defer wg.Done()
-			records, err := reader.NewReader(p.GetData()).Read()
+			records, err := NewReader(p.GetData()).Read()
 			if err != nil {
 				log.Fatal(err)
 			}

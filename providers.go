@@ -1,4 +1,4 @@
-package providers
+package main
 
 import (
 	"bytes"
@@ -43,7 +43,7 @@ func (p *DefaultProvider) GetData() io.Reader {
 }
 
 var (
-	All = []*CachedProvider{
+	AllProviders = []*CachedProvider{
 		NewCachedProvider(
 			"afrinic",
 			"http://ftp.apnic.net/stats/afrinic/delegated-afrinic-latest",

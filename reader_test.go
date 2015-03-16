@@ -1,4 +1,4 @@
-package reader
+package main
 
 import (
 	"bytes"
@@ -7,14 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/simcap/rir/reader"
-	"github.com/simcap/rir/scanner"
 )
 
 // Fri Feb 27 22:11:38 CET 2015 File of 4.2M
 // BenchmarkReader	       1	1181852831 ns/op (~1.18s)
-// BenchmarkReader	       1	1226419837 ns/op
+
+// Mon Mar 16 14:33:52 CET 2015
+// BenchmarkReader	       1	1235675316 ns/op
 func BenchmarkReader(b *testing.B) {
 	path := filepath.Join(os.Getenv("HOME"), ".rir", "ripencc", "latest")
 	content, err := ioutil.ReadFile(path)
@@ -26,34 +25,34 @@ func BenchmarkReader(b *testing.B) {
 	}
 	b.ResetTimer()
 	data := bytes.NewBuffer(content)
-	reader.NewReader(data).Read()
+	NewReader(data).Read()
 }
 
-func findIpWith(records *scanner.Records, address string) scanner.IpRecord {
+func findIpWith(records *Records, address string) *IpRecord {
 	for _, ip := range records.Ips {
 		if address == ip.Start.String() {
 			return ip
 		}
 	}
 	log.Fatalf("Cannot find ip with address %s", address)
-	return scanner.IpRecord{}
+	return &IpRecord{}
 }
 
-func findAsnWith(records *scanner.Records, number int) scanner.AsnRecord {
+func findAsnWith(records *Records, number int) *AsnRecord {
 	for _, asn := range records.Asns {
 		if number == asn.Start {
 			return asn
 		}
 	}
 	log.Fatal("Cannot find asn with number %s", number)
-	return scanner.AsnRecord{}
+	return &AsnRecord{}
 
 }
 
 func TestParsingRegularFile(t *testing.T) {
 	data := bytes.NewBufferString(regularData)
 
-	records, _ := reader.NewReader(data).Read()
+	records, _ := NewReader(data).Read()
 
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 

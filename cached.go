@@ -1,4 +1,4 @@
-package providers
+package main
 
 import (
 	"bufio"
@@ -56,7 +56,7 @@ func GetCacheDir() string {
 }
 
 func CreateCacheDir() {
-	for _, provider := range All {
+	for _, provider := range AllProviders {
 		path := filepath.Join(GetCacheDir(), provider.Name())
 		os.MkdirAll(path, 0700)
 	}
