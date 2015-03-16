@@ -44,7 +44,7 @@ func (q *Query) IsCountryQuery() bool {
 
 func (q *Query) matchOnCountry() []*IpRecord {
 	if q.country == "" {
-		log.Fatal("Provide a 2 letter code for a country")
+		flag.Usage()
 	}
 
 	var results []*IpRecord
@@ -60,7 +60,7 @@ func (q *Query) matchOnCountry() []*IpRecord {
 
 func (q *Query) matchOnIp() []*IpRecord {
 	if q.ipstring == "" {
-		log.Fatal("Provide a ip address")
+		flag.Usage()
 	}
 
 	var results []*IpRecord
