@@ -32,9 +32,9 @@ type (
 	}
 
 	Record struct {
-		Registry, Cc, Type string
-		Value              int
-		Date, Status       string
+		Registry, Cc, Type     string
+		Value                  int
+		Date, Status, OpaqueId string
 	}
 
 	IpRecord struct {
@@ -176,17 +176,23 @@ func (p *parser) parseSummary() *Summary {
 }
 
 func (p *parser) parseIp() *IpRecord {
+	if len(p.fields) == 7 {
+		p.fields = append(p.fields, "")
+	}
 	return &IpRecord{
 		&Record{p.fields[0], p.fields[1], p.fields[2],
-			p.toInt(p.fields[4]), p.fields[5], p.fields[6]},
+			p.toInt(p.fields[4]), p.fields[5], p.fields[6], p.fields[7]},
 		net.ParseIP(p.fields[3]),
 	}
 }
 
 func (p *parser) parseAsn() *AsnRecord {
+	if len(p.fields) == 7 {
+		p.fields = append(p.fields, "")
+	}
 	return &AsnRecord{
 		&Record{p.fields[0], p.fields[1], p.fields[2],
-			p.toInt(p.fields[4]), p.fields[5], p.fields[6]},
+			p.toInt(p.fields[4]), p.fields[5], p.fields[6], p.fields[7]},
 		p.toInt(p.fields[3]),
 	}
 }
