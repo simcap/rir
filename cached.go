@@ -25,6 +25,8 @@ func NewCachedProvider(name string, url string) *CachedProvider {
 	}
 }
 
+const ONE_DAY = 86400.0
+
 func (p *CachedProvider) GetData() io.Reader {
 	f := p.GetFile()
 	defer f.Close()
@@ -32,10 +34,10 @@ func (p *CachedProvider) GetData() io.Reader {
 
 	fileage := time.Since(finfo.ModTime()).Seconds()
 
-	if finfo.Size() > 0 && fileage < 86400.0 {
-		log.Printf("No refresh for %s", p.Name())
+	if finfo.Size() > 0 && fileage < ONE_DAY {
+		// no refresh needed
 	} else if finfo.Size() == 0 || p.isStale() {
-		log.Printf("%s data need refresh", p.Name())
+		log.Printf("Refreshing %s data", p.Name())
 		data := p.DefaultProvider.GetData()
 		CopyDataToFile(data, f)
 	}
@@ -45,7 +47,6 @@ func (p *CachedProvider) GetData() io.Reader {
 }
 
 func (p *CachedProvider) isStale() bool {
-	log.Printf("Checking freshness for %s", p.Name())
 	local := p.localMd5()
 	remote := p.remoteMd5()
 	return (local != remote) || (remote == "" && local == "")
@@ -95,6 +96,8 @@ func (p *CachedProvider) localMd5() string {
 	return fmt.Sprintf("%x", md5.Sum(content))
 }
 
+var MD5SigRegex = regexp.MustCompile(`(?i)([a-f0-9]{32})`)
+
 func (p *CachedProvider) remoteMd5() string {
 	resp, err := http.Get(p.url + ".md5")
 	if err != nil {
@@ -109,9 +112,10 @@ func (p *CachedProvider) remoteMd5() string {
 
 	md5Response, _ := ioutil.ReadAll(resp.Body)
 
-	matches := regexp.MustCompile("=\\s*(\\w+)\\s*$").FindSubmatch(md5Response)
+	matches := MD5SigRegex.FindSubmatch(md5Response)
+
 	if matches == nil {
-		log.Print("Cannot regexp match an md5")
+		log.Printf("Cannot regexp match an md5 for %s", p.Name())
 		return ""
 	}
 
