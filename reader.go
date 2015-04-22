@@ -32,9 +32,9 @@ type (
 	}
 
 	Record struct {
-		Registry, Cc, Type string
-		Value              int
-		Date, Status       string
+		Registry, Cc, Type     string
+		Value                  int
+		Date, Status, OpaqueId string
 	}
 
 	IpRecord struct {
@@ -176,19 +176,30 @@ func (p *parser) parseSummary() *Summary {
 }
 
 func (p *parser) parseIp() *IpRecord {
-	return &IpRecord{
-		&Record{p.fields[0], p.fields[1], p.fields[2],
-			p.toInt(p.fields[4]), p.fields[5], p.fields[6]},
-		net.ParseIP(p.fields[3]),
-	}
+	return &IpRecord{p.buildRecord(), net.ParseIP(p.fields[3])}
 }
 
 func (p *parser) parseAsn() *AsnRecord {
-	return &AsnRecord{
-		&Record{p.fields[0], p.fields[1], p.fields[2],
-			p.toInt(p.fields[4]), p.fields[5], p.fields[6]},
-		p.toInt(p.fields[3]),
+	return &AsnRecord{p.buildRecord(), p.toInt(p.fields[3])}
+}
+
+func (p *parser) buildRecord() *Record {
+	record := Record{
+		Registry: p.fields[0],
+		Cc:       p.fields[1],
+		Type:     p.fields[2],
+		Value:    p.toInt(p.fields[4]),
+		Date:     p.fields[5],
+		Status:   p.fields[6],
 	}
+	if p.isExtendedRecord() {
+		record.OpaqueId = p.fields[7]
+	}
+	return &record
+}
+
+func (p *parser) isExtendedRecord() bool {
+	return len(p.fields) > 7
 }
 
 func (p *parser) toInt(s string) int {

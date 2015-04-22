@@ -84,15 +84,24 @@ func TestParsingRegularFile(t *testing.T) {
 	if asnRecord.Status != "allocated" {
 		t.Errorf("asn record status: expected 'allocated' got %q", asnRecord.Status)
 	}
+	if asnRecord.OpaqueId != "A91BD5FB" {
+		t.Errorf("asn record opaque id: expected 'A91BD5FB' got %q", asnRecord.OpaqueId)
+	}
 
 	ipRecord := findIpWith(records, "203.81.160.0")
 	if ipRecord.Status != "assigned" {
 		t.Errorf("ip record status: expected 'assigned' got %q", ipRecord.Status)
 	}
+	if ipRecord.OpaqueId != "" {
+		t.Errorf("ip record opaque id: expected empty got %q", ipRecord.OpaqueId)
+	}
 
 	otherIpRecord := findIpWith(records, "193.9.26.0")
 	if otherIpRecord.Status != "assigned" {
 		t.Errorf("ip record status: expected 'assigned' got %q", otherIpRecord.Status)
+	}
+	if otherIpRecord.OpaqueId != "A91872ED" {
+		t.Errorf("ip record opaque id: expected 'A91872ED' got %q", otherIpRecord.OpaqueId)
 	}
 
 }
@@ -103,7 +112,7 @@ apnic|*|asn|*|3986|summary
 apnic|*|ipv4|*|17947|summary
 
 apnic|*|ipv6|*|1553|summary
-apnic|JP|asn|173|1|20020801|allocated
+apnic|JP|asn|173|1|20020801|allocated|A91BD5FB
 apnic|NZ|asn|681|1|20020801|allocated
 apnic|MM|ipv4|203.81.64.0|8192|20100504|assigned
 apnic|MM|ipv4|203.81.160.0|4096|20100122|assigned
@@ -113,4 +122,4 @@ apnic|JP|ipv6|2001:200:2000::|35|20030423|allocated
 apnic|JP|ipv6|2001:200:4000::|34|20030423|allocated
 apnic|JP|ipv6|2001:200:8000::|33|20030423|allocated
 ripencc|PL|ipv4|193.9.25.0|256|20090225|assigned
-ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned`
+ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned|A91872ED`
