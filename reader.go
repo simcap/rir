@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -68,13 +67,6 @@ func (ipr *IpRecord) Net() *net.IPNet {
 	}
 
 	return &net.IPNet{ipr.Start, mask}
-}
-
-func (ipr *IpRecord) String() string {
-	if ipr.Type == IPv4 {
-		return fmt.Sprintf("Country %s %s (%d hosts)", ipr.Cc, ipr.Start, ipr.Value)
-	}
-	return fmt.Sprintf("Country %s %s/%d", ipr.Cc, ipr.Start, ipr.Value)
 }
 
 type Reader struct {

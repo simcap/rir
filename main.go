@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -21,14 +22,14 @@ func main() {
 	flag.Parse()
 	query := Query{data, *country, *ipquery}
 
-	var results []*IpRecord
+	var results []string
 	if query.IsCountryQuery() {
 		results = query.matchOnCountry()
 	} else {
 		results = query.matchOnIp()
 	}
 	for _, r := range results {
-		log.Print(r)
+		fmt.Println(r)
 	}
 }
 
@@ -42,32 +43,33 @@ func (q *Query) IsCountryQuery() bool {
 	return q.country != ""
 }
 
-func (q *Query) matchOnCountry() []*IpRecord {
+func (q *Query) matchOnCountry() []string {
 	if q.country == "" {
 		flag.Usage()
 	}
 
-	var results []*IpRecord
+	var results []string
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
 			if iprecord.Cc == q.country && iprecord.Type == IPv4 {
-				results = append(results, iprecord)
+				results = append(results, iprecord.Net().String())
 			}
 		}
 	}
 	return results
 }
 
-func (q *Query) matchOnIp() []*IpRecord {
+func (q *Query) matchOnIp() []string {
 	if q.ipstring == "" {
 		flag.Usage()
 	}
 
-	var results []*IpRecord
+	var results []string
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
-			if iprecord.Net().Contains(net.ParseIP(q.ipstring)) {
-				results = append(results, iprecord)
+			ipnet := iprecord.Net()
+			if ipnet.Contains(net.ParseIP(q.ipstring)) {
+				results = append(results, fmt.Sprintf("%s %s", iprecord.Cc, ipnet))
 			}
 		}
 	}
