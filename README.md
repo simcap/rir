@@ -20,10 +20,10 @@ Run `go test -v`
 Get the basic usage
 
     $ rir
-  Usage of ./rir:
-    -c="": 2 letters string of the country (ISO 3166)
-    -n=false: given country return possible hosts count (exclude network and broadcast addresses)
-    -q="": ip address to which to resolve country
+    Usage of ./rir:
+      -c="": 2 letters string of the country (ISO 3166)
+      -n=false: given country return possible hosts count (exclude network and broadcast addresses)
+      -q="": ip address to which to resolve country
 
 Explore ip blocks given a country
 
