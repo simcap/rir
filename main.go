@@ -12,7 +12,7 @@ import (
 func main() {
 	country := flag.String("c", "", "2 letters string of the country (ISO 3166)")
 	ipquery := flag.String("q", "", "ip address to which to resolve country")
-	hostscount := flag.Bool("n", false, "count the number of possibles hosts for a given country")
+	hostscount := flag.Bool("n", false, "given country return possible hosts count (exclude network and broadcast addresses)")
 
 	CreateCacheDir()
 
