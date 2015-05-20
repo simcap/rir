@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"sync"
 )
@@ -11,6 +12,7 @@ import (
 func main() {
 	country := flag.String("c", "", "2 letters string of the country (ISO 3166)")
 	ipquery := flag.String("q", "", "ip address to which to resolve country")
+	hostscount := flag.Bool("n", false, "count the number of possibles hosts for a given country")
 
 	CreateCacheDir()
 
@@ -20,9 +22,9 @@ func main() {
 	}
 
 	flag.Parse()
-	query := Query{data, *country, *ipquery}
+	query := Query{data, *country, *ipquery, *hostscount}
 
-	var results []string
+	var results []interface{}
 	if query.IsCountryQuery() {
 		results = query.matchOnCountry()
 	} else {
@@ -34,37 +36,51 @@ func main() {
 }
 
 type Query struct {
-	data     []*Records
-	country  string
-	ipstring string
+	data       []*Records
+	country    string
+	ipstring   string
+	hostscount bool
 }
 
 func (q *Query) IsCountryQuery() bool {
 	return q.country != ""
 }
 
-func (q *Query) matchOnCountry() []string {
+func (q *Query) matchOnCountry() []interface{} {
 	if q.country == "" {
 		flag.Usage()
 	}
 
-	var results []string
+	var results []interface{}
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
 			if iprecord.Cc == q.country && iprecord.Type == IPv4 {
-				results = append(results, iprecord.Net().String())
+				results = append(results, iprecord.Net())
 			}
 		}
+	}
+	if q.hostscount {
+		var count int
+		for _, r := range results {
+			n := r.(*net.IPNet)
+			ones, size := n.Mask.Size()
+			mask := size - ones
+			if mask > 0 {
+				count = count + int((math.Pow(2, float64(mask)) - 2))
+			}
+
+		}
+		return []interface{}{count}
 	}
 	return results
 }
 
-func (q *Query) matchOnIp() []string {
+func (q *Query) matchOnIp() []interface{} {
 	if q.ipstring == "" {
 		flag.Usage()
 	}
 
-	var results []string
+	var results []interface{}
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
 			ipnet := iprecord.Net()
