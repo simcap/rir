@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/binary"
 	"io"
 	"log"
 	"math"
@@ -54,19 +55,58 @@ type (
 	}
 )
 
-func (ipr *IpRecord) Net() *net.IPNet {
-	var mask net.IPMask
-	if ipr.Type == IPv4 {
-		hostscount := ipr.Value
-		ones := 32 - int(math.Log2(float64(hostscount)))
-		mask = net.CIDRMask(ones, net.IPv4len*8)
-	} else if ipr.Type == IPv6 {
-		mask = net.CIDRMask(ipr.Value, net.IPv6len*8)
-	} else {
-		log.Fatalf("no ipnet for ip of type '%s'", ipr.Type)
+func hostMaxLen(ip uint32) int {
+	res := 0
+	for (ip & 1) == 0 {
+		ip >>= 1
+		res++
 	}
 
-	return &net.IPNet{ipr.Start, mask}
+	return res
+}
+
+func (ipr *IpRecord) v4Net() []*net.IPNet {
+	var out []*net.IPNet
+	hostsCount := uint32(ipr.Value)
+	currentStart := binary.BigEndian.Uint32(ipr.Start[len(ipr.Start)-4:])
+
+	for hostsCount > 0 {
+		currentIP := make([]byte, 4)
+		binary.BigEndian.PutUint32(currentIP, currentStart)
+		var minNet int
+
+		logRes := int(math.Log2(float64(hostsCount)))
+		maxRes := hostMaxLen(currentStart)
+		if logRes < maxRes {
+			minNet = logRes
+		} else {
+			minNet = maxRes
+		}
+
+		out = append(out, &net.IPNet{currentIP, net.CIDRMask(32-minNet, 32)})
+
+		numHosts := uint32(1 << minNet)
+		hostsCount -= numHosts
+		currentStart += numHosts
+	}
+
+	return out
+}
+
+func (ipr *IpRecord) v6Net() []*net.IPNet {
+	return []*net.IPNet{
+		&net.IPNet{IP: ipr.Start, Mask: net.CIDRMask(ipr.Value, net.IPv6len*8)},
+	}
+}
+
+func (ipr *IpRecord) Net() []*net.IPNet {
+	if ipr.Type == IPv4 {
+		return ipr.v4Net()
+	} else if ipr.Type == IPv6 {
+		return ipr.v6Net()
+	}
+	log.Fatalf("no ipnet for ip of type '%s'", ipr.Type)
+	return nil
 }
 
 type Reader struct {
