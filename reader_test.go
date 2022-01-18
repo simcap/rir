@@ -18,7 +18,7 @@ func BenchmarkReader(b *testing.B) {
 	path := filepath.Join(os.Getenv("HOME"), ".rir", "ripencc", "latest")
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal("Cannot read file for bench. %v", err)
+		log.Fatalf("Cannot read file for bench. %v", err)
 	}
 	if len(content) == 0 {
 		log.Fatal(" File for bench is empty!")
@@ -44,7 +44,7 @@ func findAsnWith(records *Records, number int) *AsnRecord {
 			return asn
 		}
 	}
-	log.Fatal("Cannot find asn with number %s", number)
+	log.Fatalf("Cannot find asn with number %d", number)
 	return &AsnRecord{}
 
 }
@@ -57,7 +57,7 @@ func TestParsingRegularFile(t *testing.T) {
 	recordsCount, asnCount, ipv4Count, ipv6Count := 23486, 3986, 17947, 1553
 
 	if records.Version != 2.3 {
-		t.Errorf("records version: expected 2.3 got %d", records.Version)
+		t.Errorf("records version: expected 2.3 got %f", records.Version)
 	}
 	if records.Count != recordsCount {
 		t.Errorf("total records count: expected %d got %d", recordsCount, records.Count)
@@ -76,8 +76,8 @@ func TestParsingRegularFile(t *testing.T) {
 		t.Errorf("asn real count: expected %d got %d", 2, len(records.Asns))
 	}
 
-	if len(records.Ips) != 9 {
-		t.Errorf("ips real count: expected %d got %d. Content:", 9, len(records.Ips), records.Ips)
+	if len(records.Ips) != 10 {
+		t.Errorf("ips real count: expected %d got %d. Content: %v", 10, len(records.Ips), records.Ips)
 	}
 
 	asnRecord := findAsnWith(records, 173)
@@ -104,6 +104,11 @@ func TestParsingRegularFile(t *testing.T) {
 		t.Errorf("ip record opaque id: expected 'A91872ED' got %q", otherIpRecord.OpaqueId)
 	}
 
+	splitRecord := findIpWith(records, "193.18.0.0")
+	splitNets := splitRecord.Net()
+	if !(len(splitNets) == 2 && splitNets[0].String() == "193.18.0.0/16" && splitNets[1].String() == "193.19.0.0/19") {
+		t.Errorf("invalid parsing of split subnet, got: %v", splitNets)
+	}
 }
 
 var regularData = `2.3|apnic|20110113|23486|19850701|20110112|+1000
@@ -122,4 +127,5 @@ apnic|JP|ipv6|2001:200:2000::|35|20030423|allocated
 apnic|JP|ipv6|2001:200:4000::|34|20030423|allocated
 apnic|JP|ipv6|2001:200:8000::|33|20030423|allocated
 ripencc|PL|ipv4|193.9.25.0|256|20090225|assigned
+ripencc|DE|ipv4|193.18.0.0|73728|19920922|assigned
 ripencc|HU|ipv4|193.9.26.0|512|20081222|assigned|A91872ED`

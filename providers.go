@@ -46,23 +46,23 @@ var (
 	AllProviders = []*CachedProvider{
 		NewCachedProvider(
 			"afrinic",
-			"http://ftp.apnic.net/stats/afrinic/delegated-afrinic-extended-latest",
+			"https://ftp.ripe.net/pub/stats/afrinic/delegated-afrinic-extended-latest",
 		),
 		NewCachedProvider(
 			"apnic",
-			"http://ftp.apnic.net/stats/apnic/delegated-apnic-extended-latest",
-		),
-		NewCachedProvider(
-			"lacnic",
-			"http://ftp.apnic.net/stats/lacnic/delegated-lacnic-extended-latest",
-		),
-		NewCachedProvider(
-			"ripencc",
-			"http://ftp.apnic.net/stats/ripe-ncc/delegated-ripencc-extended-latest",
+			"https://ftp.ripe.net/pub/stats/apnic/delegated-apnic-extended-latest",
 		),
 		NewCachedProvider(
 			"arin",
-			"http://ftp.arin.net/pub/stats/arin/delegated-arin-extended-latest",
+			"https://ftp.ripe.net/pub/stats/arin/delegated-arin-extended-latest",
+		),
+		NewCachedProvider(
+			"lacnic",
+			"https://ftp.ripe.net/pub/stats/lacnic/delegated-lacnic-extended-latest",
+		),
+		NewCachedProvider(
+			"ripencc",
+			"https://ftp.ripe.net/pub/stats/ripencc/delegated-ripencc-extended-latest",
 		),
 		//NewCachedProvider(
 		//	"iana",

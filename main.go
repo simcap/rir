@@ -24,14 +24,27 @@ func main() {
 	flag.Parse()
 	query := Query{data, *country, *ipquery, *hostscount}
 
-	var results []interface{}
 	if query.IsCountryQuery() {
-		results = query.matchOnCountry()
+		results := query.matchOnCountry()
+		if query.hostscount {
+			var count int
+			for _, r := range results {
+				ones, size := r.Mask.Size()
+				mask := size - ones
+				if mask > 0 {
+					count = count + int((math.Pow(2, float64(mask)) - 2))
+				}
+			}
+			fmt.Println(count)
+		} else {
+			for _, r := range results {
+				fmt.Println(r)
+			}
+		}
 	} else {
-		results = query.matchOnIp()
-	}
-	for _, r := range results {
-		fmt.Println(r)
+		for _, r := range query.matchOnIp() {
+			fmt.Println(r)
+		}
 	}
 }
 
@@ -46,46 +59,35 @@ func (q *Query) IsCountryQuery() bool {
 	return q.country != ""
 }
 
-func (q *Query) matchOnCountry() []interface{} {
+func (q *Query) matchOnCountry() []*net.IPNet {
 	if q.country == "" {
 		flag.Usage()
 	}
 
-	var results []interface{}
+	var results []*net.IPNet
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
 			if iprecord.Cc == q.country && iprecord.Type == IPv4 {
-				results = append(results, iprecord.Net())
+				results = append(results, iprecord.Net()...)
 			}
 		}
 	}
-	if q.hostscount {
-		var count int
-		for _, r := range results {
-			n := r.(*net.IPNet)
-			ones, size := n.Mask.Size()
-			mask := size - ones
-			if mask > 0 {
-				count = count + int((math.Pow(2, float64(mask)) - 2))
-			}
 
-		}
-		return []interface{}{count}
-	}
 	return results
 }
 
-func (q *Query) matchOnIp() []interface{} {
+func (q *Query) matchOnIp() []string {
 	if q.ipstring == "" {
 		flag.Usage()
 	}
 
-	var results []interface{}
+	var results []string
 	for _, region := range q.data {
 		for _, iprecord := range region.Ips {
-			ipnet := iprecord.Net()
-			if ipnet.Contains(net.ParseIP(q.ipstring)) {
-				results = append(results, fmt.Sprintf("%s %s", iprecord.Cc, ipnet))
+			for _, ipnet := range iprecord.Net() {
+				if ipnet.Contains(net.ParseIP(q.ipstring)) {
+					results = append(results, fmt.Sprintf("%s %s", iprecord.Cc, ipnet))
+				}
 			}
 		}
 	}
@@ -95,16 +97,16 @@ func (q *Query) matchOnIp() []interface{} {
 func retrieveData() chan *Records {
 	var wg sync.WaitGroup
 	ch := make(chan *Records)
+	wg.Add(len(AllProviders))
 
 	for _, provider := range AllProviders {
-		wg.Add(1)
 		go func(p Provider) {
-			defer wg.Done()
 			records, err := NewReader(p.GetData()).Read()
 			if err != nil {
 				log.Fatal(err)
 			}
 			ch <- records
+			wg.Done()
 		}(provider)
 	}
 
